@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "dev": "nx run-many -t dev --all",
+    "dev": "nx run-many -t dev,serve --all",
     "affected:serve": "nx affected:serve",
     "affected:build": "nx affected:build",
     "affected:test": "nx affected:test",

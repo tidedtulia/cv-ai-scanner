@@ -42,7 +42,8 @@
         "buildDepsTargetName": "build-deps",
         "watchDepsTargetName": "watch-deps",
         "serveStaticTargetName": "serve-static"
-      }
+      },
+      "exclude": ["packages/backend/**/*"]
     },
     {
       "plugin": "@nx/next/plugin",
