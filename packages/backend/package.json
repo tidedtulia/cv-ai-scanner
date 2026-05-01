@@ -19,7 +19,8 @@
               "--node-env=development"
             ]
           }
-        }
+        },
+        "cache": false
       },
       "prune-lockfile": {
         "dependsOn": [
@@ -64,7 +65,8 @@
         ],
         "options": {
           "buildTarget": "@org/backend:build",
-          "runBuildTargetDependencies": false
+          "runBuildTargetDependencies": false,
+          "outputFileName": "packages/backend/dist/main.js"
         },
         "configurations": {
           "development": {
@@ -91,6 +93,7 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@nestjs/testing": "^11.0.0"
+    "@nestjs/testing": "^11.0.0",
+    "webpack-cli": "^5.1.4"
   }
 }
