@@ -59,3 +59,10 @@ test-output
 .env.*
 !.env.example
 package-lock.json
+rule.md
+
+# Nx graph output
+output.json
+
+# Prisma
+packages/backend/prisma/migrations/
