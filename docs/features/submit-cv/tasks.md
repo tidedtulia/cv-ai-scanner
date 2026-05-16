@@ -14,7 +14,7 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md)
 
 ## Data & Constants
 
-- [ ] Tạo `packages/frontend/src/data/positions.ts`
+- [x] Tạo `packages/frontend/src/data/positions.ts`
   - Định nghĩa interface `Position { id, title, requirements[] }`
   - Export mảng `POSITIONS` với 3 vị trí hardcode
 
@@ -22,7 +22,7 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md)
 
 ## Mock API
 
-- [ ] Tạo `packages/frontend/src/app/api/submit-cv/route.ts`
+- [x] Tạo `packages/frontend/src/app/api/submit-cv/route.ts`
   - POST handler nhận `FormData`
   - Validate có đủ các field: `name`, `email`, `position`, `cv`
   - Trả `{ success: true, message: "Submit CV successfully" }` nếu hợp lệ
@@ -32,24 +32,24 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md)
 
 ## Components
 
-- [ ] Tạo `packages/frontend/src/components/submit-cv/PositionSelect.tsx`
+- [x] Tạo `packages/frontend/src/components/submit-cv/PositionSelect.tsx`
   - Props: `value: string`, `onChange: (id: string) => void`
   - Render `<select>` với danh sách từ `POSITIONS`
   - Hiện placeholder "Select a position" khi chưa chọn
 
-- [ ] Tạo `packages/frontend/src/components/submit-cv/PositionRequirements.tsx`
+- [x] Tạo `packages/frontend/src/components/submit-cv/PositionRequirements.tsx`
   - Props: `positionId: string`
   - Tìm position trong `POSITIONS` theo `positionId`
   - Hiện danh sách requirements dạng bullet list
   - Không render gì nếu `positionId` rỗng
 
-- [ ] Tạo `packages/frontend/src/components/submit-cv/CvUploadField.tsx`
+- [x] Tạo `packages/frontend/src/components/submit-cv/CvUploadField.tsx`
   - Props: `onChange: (file: File | null) => void`, `error?: string`
   - File input chấp nhận `.pdf,.doc,.docx`
   - Hiện tên file đã chọn
   - Hiện error message nếu có
 
-- [ ] Tạo `packages/frontend/src/components/submit-cv/SubmitCvForm.tsx`
+- [x] Tạo `packages/frontend/src/components/submit-cv/SubmitCvForm.tsx`
   - Quản lý state: `name`, `email`, `positionId`, `cvFile`, `submitted`, `loading`, `errors`
   - Validate trước khi submit (dùng `isValidEmail` từ `@org/shared`)
   - Submit: `FormData` + `fetch('/api/submit-cv', { method: 'POST' })`
@@ -59,7 +59,7 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md)
 
 ## Page
 
-- [ ] Tạo `packages/frontend/src/app/submit-cv/page.tsx`
+- [x] Tạo `packages/frontend/src/app/submit-cv/page.tsx`
   - Metadata: `title: "Submit CV"`
   - Render `<SubmitCvForm />`
 
