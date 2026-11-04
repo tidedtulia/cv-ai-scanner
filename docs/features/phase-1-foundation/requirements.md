@@ -14,14 +14,16 @@ Bối cảnh và các quyết định (D1–D19): [project-overview.md](../../pr
 
 ## Các bước
 
-| Bước | Nội dung | Trạng thái |
-|------|----------|------------|
-| 1.1 | Database: Prisma schema, migration, seed | Đang làm |
-| 1.2 | API công khai: job + danh mục | Chưa làm |
-| 1.3 | API nộp đơn + upload Google Drive | Chưa làm |
-| 1.4 | Frontend: trang chủ, `/jobs`, cập nhật `/submit-cv` | Chưa làm |
+Mỗi bước là **1 feature riêng** (branch + thư mục docs riêng). Thư mục này chỉ chứa bước 1.1.
 
-Yêu cầu chi tiết của bước 1.2–1.4 sẽ viết khi bắt đầu từng bước.
+| Bước | Nội dung | Feature | Trạng thái |
+|------|----------|---------|------------|
+| 1.1 | Database: Prisma schema, migration, seed | `phase-1-foundation` (thư mục này) | ✅ Xong |
+| 1.2 | API công khai: job + danh mục | feature riêng — tạo khi bắt đầu | Chưa làm |
+| 1.3 | API nộp đơn + upload Google Drive | feature riêng — tạo khi bắt đầu | Chưa làm |
+| 1.4 | Frontend: trang chủ, `/jobs`, cập nhật `/submit-cv` | feature riêng — tạo khi bắt đầu | Chưa làm |
+
+Yêu cầu chi tiết của bước 1.2–1.4 nằm trong `requirements.md` của từng feature.
 
 ---
 

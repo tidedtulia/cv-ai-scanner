@@ -1,6 +1,6 @@
 # Thiết kế Database — CV AI Scanner
 
-> **Bản nháp v0.5 (2026-11-04)** — đang trao đổi, chưa áp dụng vào Prisma schema.
+> **v1.0 (2026-11-04)** — đã áp dụng: [`schema.prisma`](../packages/backend/prisma/schema.prisma), migration `20261104142813_init`. Mọi thay đổi tiếp theo phải cập nhật tài liệu này **và** tạo migration mới.
 > Bối cảnh & luồng nghiệp vụ: [project-overview.md](./project-overview.md)
 
 ---
@@ -363,7 +363,7 @@ Ví dụ — job "Senior Backend Developer (Java)", nhóm Developer, level Senio
 | `criteria_scores` | jsonb | NOT NULL | Điểm từng tiêu chí + snapshot tiêu chí. n8n lấy tên / trọng số từ DB, không lấy từ output của Claude — cấu trúc bên dưới *(xem DQ2)* |
 | `estimated_years_experience` | numeric(4,1) | NULL | Tổng số năm kinh nghiệm Claude ước tính; NULL nếu CV không đủ thông tin |
 | `estimated_level_id` | uuid | FK → `job_levels.id`, NULL, ON DELETE SET NULL | Level Claude ước tính |
-| `model` | varchar(64) | NOT NULL | vd `claude-opus-5-5` |
+| `model` | varchar(64) | NOT NULL | vd `claude-opus-5-5`. Field Prisma tên là `aiModel` (`@map("model")`) |
 | `prompt_version` | varchar(32) | NOT NULL | vd `v1` — để so sánh khi chỉnh prompt |
 | `created_at` / `updated_at` | timestamptz | NOT NULL, default `now()` | `updated_at` = lần chấm gần nhất |
 

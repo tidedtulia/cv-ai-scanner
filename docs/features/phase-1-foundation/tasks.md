@@ -22,12 +22,13 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md) · Thi�
   - `id` = `gen_random_uuid()` ở DB; `updated_at` có default `now()` ở DB
   - Tên bảng / cột / enum dạng `snake_case` qua `@map` / `@@map`
   - `evaluations.model` → field Prisma `aiModel` (`@map("model")`)
-- [ ] Migration `init` + CHECK constraint viết tay (weight 1–5, min_years ≥ 0, overall_score 0–100, estimated_years ≥ 0)
+- [x] Migration `20261104142813_init` + CHECK constraint viết tay (weight 1–5, min_years ≥ 0, overall_score 0–100, estimated_years ≥ 0)
 
 ### Seed
 
 - [x] `prisma/seed.ts`: 7 nhóm vị trí, 7 level (bước 10), 3 vị trí `OPEN` (Developer / Middle / 2 năm) + tiêu chí, 1 tài khoản HR từ `SEED_HR_*`
 - [x] Idempotent: chỉ tạo khi chưa có (khớp theo `code` / `email`), không ghi đè
+- [x] Lệnh seed: `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON prisma/seed.ts` (backend không khai báo `"type"`, Node tự nhận ESM)
 
 ### Module users (giữ API CRUD)
 
@@ -47,17 +48,16 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md) · Thi�
 
 ### Kiểm tra trên DB thật
 
-- [ ] `npm run db:up` → container healthy
-- [ ] `npx prisma migrate dev` áp dụng migration
-- [ ] AC-1: INSERT bằng SQL thuần không cần `id` / `created_at` / `updated_at`
-- [ ] AC-2: CHECK constraint và `ON DELETE RESTRICT` chặn dữ liệu sai
-- [ ] AC-3: `npx prisma db seed` chạy 2 lần → số dòng không đổi
-- [ ] AC-4: `GET /api/users` không có `passwordHash`; `:id` sai định dạng → 400
+- [x] `npm run db:up` → container healthy (port 5433 vì máy dev đã có PostgreSQL ở 5432)
+- [x] `npx prisma migrate dev` áp dụng migration; `migrate status` → up to date
+- [x] AC-1: INSERT bằng SQL thuần không cần `id` / `created_at` / `updated_at`
+- [x] Chạy đúng các câu SQL trong database.md §5 (nhận đơn, tool MCP, lưu kết quả): upsert 2 lần → 1 evaluation; lịch sử đủ 3 bước
+- [x] AC-2: 8/8 trường hợp dữ liệu sai bị từ chối (CHECK + `ON DELETE RESTRICT`)
+- [x] AC-3: `npx prisma db seed` chạy 2 lần → 7 nhóm / 7 level / 3 job / 9 tiêu chí / 1 user, không đổi
+- [x] AC-4: response `/api/users` không có `passwordHash`; email chữ thường; DB lưu `scrypt$…`; thiếu password / `:id` sai định dạng → 400
 
 ---
 
-## 1.2 API công khai — *chưa bắt đầu*
+## 1.2 – 1.4
 
-## 1.3 API nộp đơn + Google Drive — *chưa bắt đầu*
-
-## 1.4 Frontend — *chưa bắt đầu*
+Mỗi bước là 1 feature riêng, có branch và `tasks.md` riêng — xem bảng "Các bước" trong [requirements.md](./requirements.md).

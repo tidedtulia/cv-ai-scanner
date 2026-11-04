@@ -323,12 +323,12 @@ overall_score (0–100) = Σ(score_i × weight_i) / Σ(weight_i) × 10
 
 ## 10. Lộ trình
 
-Mỗi phase có thư mục riêng `docs/features/<feature>/` gồm `requirements.md` + `tasks.md` (giống [submit-cv](./features/submit-cv/)).
+Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/` gồm `requirements.md` + `tasks.md` (giống [submit-cv](./features/submit-cv/)). Một phase có thể gồm nhiều feature, vd Phase 1 tách thành 4 feature theo 4 bước.
 
 **Phase 0 — UI nộp CV (mock)** ✅ — [features/submit-cv](./features/submit-cv/)
 
-**Phase 1 — Nền tảng dữ liệu & trang công khai**
-- [ ] Chốt [database.md](./database.md) → Prisma schema + migration + seed (nhóm vị trí, level, 3 vị trí hiện có + tiêu chí, 1 tài khoản HR)
+**Phase 1 — Nền tảng dữ liệu & trang công khai** — [features/phase-1-foundation](./features/phase-1-foundation/)
+- [x] Chốt [database.md](./database.md) → Prisma schema + migration + seed (nhóm vị trí, level, 3 vị trí hiện có + tiêu chí, 1 tài khoản HR)
 - [ ] Backend: module `positions` + danh mục (public API, chỉ trả dữ liệu công khai), module `applications` (nhận đơn, validate PDF ≤ 10MB, upload Drive, insert + lịch sử)
 - [ ] Frontend: trang chủ giới thiệu dự án; trang `/jobs`
 - [ ] Frontend `/submit-cv`: lấy job từ API thay vì hardcode, chọn sẵn theo `?position=`, hiện JD + tên tiêu chí, **chỉ nhận PDF** (cập nhật AC-1 / AC-2 / AC-4 của submit-cv), gọi API thật
