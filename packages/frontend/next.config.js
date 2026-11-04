@@ -10,6 +10,15 @@ const nextConfig = {
   // Use this to set Nx-specific options
   // See: https://nx.dev/recipes/next/next-config-setup
   nx: {},
+  transpilePackages: ['@org/shared'],
+  // @org/shared uses nodenext-style `.js` imports for `.ts` sources, which Turbopack can't resolve,
+  // so the app runs on webpack (see `--webpack` in package.json nx targets).
+  webpack: (config) => {
+    config.resolve.extensionAlias = {
+      '.js': ['.ts', '.tsx', '.js'],
+    };
+    return config;
+  },
 };
 
 const plugins = [

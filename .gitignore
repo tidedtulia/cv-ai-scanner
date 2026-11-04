@@ -58,7 +58,6 @@ test-output
 .env
 .env.*
 !.env.example
-package-lock.json
 rule.md
 
 # Nx graph output

@@ -18,6 +18,8 @@ export function PositionSelect({ value, onChange, error }: PositionSelectProps) 
         id="position"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-invalid={!!error}
+        aria-describedby={error ? 'position-error' : undefined}
         className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
         <option value="">Select a position</option>
@@ -27,7 +29,11 @@ export function PositionSelect({ value, onChange, error }: PositionSelectProps) 
           </option>
         ))}
       </select>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && (
+        <p id="position-error" className="text-xs text-red-500">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

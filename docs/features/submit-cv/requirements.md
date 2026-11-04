@@ -24,7 +24,7 @@ Cho phép ứng viên nộp CV đến hệ thống thông qua một form đơn g
 - **Name** — text input, bắt buộc
 - **Email** — text input (email), bắt buộc
 - **Position** — dropdown select, bắt buộc
-- **Upload CV** — file input (chấp nhận `.pdf`, `.doc`, `.docx`), bắt buộc
+- **Upload CV** — file input (chấp nhận `.pdf`, `.doc`, `.docx`, tối đa 10MB), bắt buộc
 
 ---
 
@@ -41,7 +41,9 @@ Cho phép ứng viên nộp CV đến hệ thống thông qua một form đơn g
 **Given:** Ứng viên đang ở trang Submit CV  
 **And:** Đã điền đầy đủ: Name, Email, Position, và đã upload file CV  
 **When:** Ứng viên nhấn nút Submit  
-**Then:** Ứng viên thấy thông báo **"Submit CV successfully"**
+**Then:**
+- Form được thay bằng màn hình thông báo ứng tuyển thành công: **"Submit CV successfully"**
+- Có button **"Back to home"** — nhấn vào điều hướng về trang chủ (`/`)
 
 ---
 
@@ -50,10 +52,23 @@ Cho phép ứng viên nộp CV đến hệ thống thông qua một form đơn g
 **Given:** Ứng viên nhấn Submit khi chưa điền đủ thông tin  
 **Then:**
 - Trường Name trống → hiện lỗi "Name is required"
+- Email trống → hiện lỗi "Email is required"
 - Email không hợp lệ → hiện lỗi "Invalid email address"
 - Chưa chọn Position → hiện lỗi "Please select a position"
 - Chưa upload file → hiện lỗi "Please upload your CV"
-- File không đúng định dạng → hiện lỗi "Only PDF, DOC, DOCX files are accepted"
+- File không đúng định dạng → hiện lỗi "Only PDF, DOC, DOCX files are accepted" (kiểm tra theo đuôi file, vì một số OS không trả MIME type cho `.doc`/`.docx`)
+- File lớn hơn 10MB → hiện lỗi "File size must not exceed 10MB" (API cũng kiểm tra lại, trả 400 với cùng message)
+- Lỗi của một trường tự mất khi ứng viên sửa trường đó
+
+---
+
+### AC-5: Submit thất bại
+
+**Given:** Form đã pass validation phía client
+**When:** API trả lỗi (`success: false` / status lỗi) hoặc request bị lỗi mạng
+**Then:**
+- Hiện thông báo lỗi phía trên nút Submit: dùng `message` từ API nếu có, nếu không thì hiện "Failed to submit CV. Please try again."
+- Form giữ nguyên dữ liệu đã nhập để ứng viên submit lại
 
 ---
 
@@ -79,7 +94,8 @@ Vào /submit-cv
                       └─ Nhấn Submit
                           ├─ [Validation fail] → Hiện lỗi tương ứng
                           └─ [Validation pass] → POST /api/submit-cv
-                              └─ Response success → "Submit CV successfully"
+                              ├─ Response success → "Submit CV successfully" + button "Back to home" → /
+                              └─ Response lỗi / network error → Hiện lỗi, giữ form
 ```
 
 ---
@@ -88,6 +104,7 @@ Vào /submit-cv
 
 - **Framework:** Next.js 16 (App Router)
 - **Styling:** Tailwind CSS
+- **Bundler:** webpack (`next dev/build --webpack`) — Turbopack không resolve được import `.js` → `.ts` trong `@org/shared`
 - **Validation:** Client-side thuần (dùng `isValidEmail()` từ `@org/shared`)
 - **API:** Next.js API Route (mock)
 - **Form submission:** Native `FormData` + `fetch`
