@@ -338,6 +338,8 @@ Ví dụ — job "Senior Backend Developer (Java)", nhóm Developer, level Senio
 | `updated_at` | timestamptz | NOT NULL, default `now()` | n8n tự set khi UPDATE; dùng để phát hiện đơn treo ở `EVALUATING` |
 
 > Lưu cả `cv_drive_file_id` và `cv_drive_url`: link dành cho người xem, còn ID dành cho API. Nếu chỉ lưu link thì n8n phải tự tách ID ra từ link.
+>
+> Khi dev với `CV_STORAGE=local`: `cv_drive_file_id` = `local:<tên file>`, `cv_drive_url` = `file://…` — chỉ dùng trên máy dev, n8n không tải được ([submit-application-api](./features/submit-application-api/requirements.md)).
 
 ### 4.7 `evaluations` — kết quả đánh giá AI
 

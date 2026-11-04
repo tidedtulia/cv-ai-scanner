@@ -48,6 +48,7 @@ cd packages/backend && npx prisma db seed
 - **Node ≥ 22** (`nvm use` reads `.nvmrc`). Prisma 7 does not run on Node 18.
 - Copy `.env.example` to **root** `.env`. It is read by `docker-compose.dev.yml`, the backend and the Prisma CLI (`packages/backend/prisma.config.ts` loads `packages/backend/.env` and the root `.env`).
 - If a local PostgreSQL already uses port 5432, set `POSTGRES_PORT` (and the port in `DATABASE_URL`) to e.g. 5433.
+- CV storage: `CV_STORAGE=local` (files in `tmp/cv-uploads`) for dev, `google-drive` for real — setup in `docs/features/submit-application-api/google-drive-setup.md`. The backend refuses to start without a valid `CV_STORAGE`.
 - Prisma config lives in `packages/backend/prisma.config.ts`; migrations in `packages/backend/prisma/migrations/` are committed. Database design: `docs/database.md`.
 
 The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node.
@@ -62,7 +63,7 @@ The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cv-ai-scanner** (536 symbols, 862 relationships, 18 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cv-ai-scanner** (765 symbols, 1297 relationships, 28 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

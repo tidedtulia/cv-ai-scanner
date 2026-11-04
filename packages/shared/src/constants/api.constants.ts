@@ -7,4 +7,5 @@ export const API_ROUTES = {
   POSITIONS: 'positions',
   JOB_CATEGORIES: 'job-categories',
   JOB_LEVELS: 'job-levels',
+  APPLICATIONS: 'applications',
 } as const;
