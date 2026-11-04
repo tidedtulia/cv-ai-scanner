@@ -1,13 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto, UpdateUserDto } from '@org/shared';
+import { hashPassword } from '../../common/password';
 import { UsersRepository } from './users.repository';
 
+// TODO(Phase 3): these endpoints are open until the HR auth guard lands.
 @Injectable()
 export class UsersService {
   constructor(private readonly usersRepo: UsersRepository) {}
 
   async create(user: CreateUserDto) {
-    return this.usersRepo.create(user);
+    if (!user.password) {
+      throw new BadRequestException('password is required');
+    }
+    return this.usersRepo.create({
+      name: user.name,
+      email: user.email.toLowerCase(),
+      passwordHash: await hashPassword(user.password),
+    });
   }
 
   async findAll() {
@@ -19,11 +28,15 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
-    return this.usersRepo.update(id, updateUserDto);
+    const { email, password, ...rest } = updateUserDto;
+    return this.usersRepo.update(id, {
+      ...rest,
+      ...(email !== undefined ? { email: email.toLowerCase() } : {}),
+      ...(password !== undefined ? { passwordHash: await hashPassword(password) } : {}),
+    });
   }
 
   async remove(id: string) {
     return this.usersRepo.delete(id);
   }
 }
-

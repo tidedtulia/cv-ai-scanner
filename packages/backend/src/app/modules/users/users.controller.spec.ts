@@ -6,7 +6,14 @@ describe('UsersController', () => {
   let controller: UsersController;
   let service: jest.Mocked<UsersService>;
 
-  const user = { id: 'u1', name: 'Jane Doe', email: 'jane@example.com', createdAt: new Date(), updatedAt: new Date() };
+  const user = {
+    id: 'u1',
+    name: 'Jane Doe',
+    email: 'jane@example.com',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -35,7 +42,7 @@ describe('UsersController', () => {
 
   it('create() forwards the body to the service', async () => {
     service.create.mockResolvedValue(user);
-    const dto = { name: user.name, email: user.email };
+    const dto = { name: user.name, email: user.email, password: 's3cret-pass' };
 
     await expect(controller.create(dto)).resolves.toBe(user);
     expect(service.create).toHaveBeenCalledWith(dto);

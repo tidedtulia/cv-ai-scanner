@@ -10,9 +10,9 @@
     "affected:lint": "nx affected:lint",
     "build": "nx run-many -t build --all",
     "test": "nx run-many -t test --all",
-    "db:up": "docker-compose up -d",
-    "db:down": "docker-compose down",
-    "db:logs": "docker logs my-app-db"
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker-compose.dev.yml down",
+    "db:logs": "docker compose -f docker-compose.dev.yml logs -f db"
   },
   "private": true,
   "devDependencies": {

@@ -1,3 +1,11 @@
+// Database design & rationale: docs/database.md
+//
+// n8n and the MCP server read/write some tables with plain SQL, so every default
+// must live in the database, not in Prisma Client:
+//   - ids use gen_random_uuid() instead of Prisma's client-side uuid()
+//   - updated_at has a DB default; @updatedAt only applies to writes made through Prisma
+// CHECK constraints are added by hand in the migration SQL (Prisma can't model them).
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,12 +14,204 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PositionStatus {
+  DRAFT
+  OPEN
+  CLOSED
+
+  @@map("position_status")
+}
+
+enum CriterionType {
+  TECHNICAL
+  EXPERIENCE
+  SOFT_SKILL
+  LANGUAGE
+  EDUCATION
+
+  @@map("criterion_type")
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  EVALUATING
+  EVALUATED
+  EVALUATION_FAILED
+  ACCEPTED
+  REJECTED
+
+  @@map("application_status")
+}
+
+enum Recommendation {
+  RECOMMENDED
+  CONSIDER
+  NOT_RECOMMENDED
+
+  @@map("recommendation")
+}
+
+/// HR account. Candidates have no account.
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @db.VarChar(255)
+  /// Stored lowercased
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  statusChanges ApplicationStatusHistory[]
 
   @@map("users")
+}
+
+/// Job category managed by HR (Developer, QA, BA…). Hidden with is_active = false, never deleted.
+model JobCategory {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique @db.VarChar(64)
+  name      String   @db.VarChar(255)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  positions Position[]
+
+  @@map("job_categories")
+}
+
+/// Seniority level managed by HR. sort_order is the rank (lower = more junior).
+model JobLevel {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Claude returns this code when estimating a candidate's level
+  code      String   @unique @db.VarChar(64)
+  name      String   @db.VarChar(255)
+  sortOrder Int      @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  positions            Position[]
+  estimatedEvaluations Evaluation[]
+
+  @@map("job_levels")
+}
+
+/// A job posting. One position = one level.
+model Position {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Slug used in URLs, e.g. /submit-cv?position=senior-backend-java
+  code               String         @unique @db.VarChar(64)
+  title              String         @db.VarChar(255)
+  categoryId         String         @map("category_id") @db.Uuid
+  levelId            String         @map("level_id") @db.Uuid
+  minYearsExperience Int            @default(0) @map("min_years_experience") @db.SmallInt
+  /// Full JD in markdown — public, also read by Claude
+  description        String
+  status             PositionStatus @default(DRAFT)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category     JobCategory         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  level        JobLevel            @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  criteria     PositionCriterion[]
+  applications Application[]
+
+  @@map("positions")
+}
+
+/// Scoring criterion of a position. Only name + type are public; description, weight
+/// and is_required are internal (HR, n8n, MCP).
+model PositionCriterion {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  positionId  String        @map("position_id") @db.Uuid
+  name        String        @db.VarChar(255)
+  type        CriterionType @default(TECHNICAL)
+  /// Scoring guidance for Claude
+  description String?
+  /// Relative weight, 1–5
+  weight      Int           @default(1) @db.SmallInt
+  isRequired  Boolean       @default(false) @map("is_required")
+  sortOrder   Int           @default(0) @map("sort_order")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@index([positionId, sortOrder])
+  @@map("position_criteria")
+}
+
+/// One row per form submission. The same email can apply many times.
+model Application {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName          String            @map("full_name") @db.VarChar(255)
+  /// Stored lowercased, not unique
+  email             String            @db.VarChar(255)
+  positionId        String            @map("position_id") @db.Uuid
+  cvFileName        String            @map("cv_file_name") @db.VarChar(255)
+  /// n8n downloads the CV by this id
+  cvDriveFileId     String            @map("cv_drive_file_id") @db.VarChar(128)
+  cvDriveUrl        String            @map("cv_drive_url")
+  status            ApplicationStatus @default(SUBMITTED)
+  /// Set by the backend once the result email is sent
+  resultEmailSentAt DateTime?         @map("result_email_sent_at") @db.Timestamptz(3)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// n8n sets this explicitly; also used to detect applications stuck in EVALUATING
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  position      Position                   @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  evaluation    Evaluation?
+  statusHistory ApplicationStatusHistory[]
+
+  @@index([status, createdAt])
+  @@index([positionId, createdAt(sort: Desc)])
+  @@index([email])
+  @@map("applications")
+}
+
+/// AI evaluation, written by n8n only. 1–1 with applications; re-evaluation upserts.
+model Evaluation {
+  id                       String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId            String         @unique @map("application_id") @db.Uuid
+  /// 0–100, computed by n8n from criteria_scores
+  overallScore             Decimal        @map("overall_score") @db.Decimal(5, 2)
+  recommendation           Recommendation
+  summary                  String
+  strengths                Json           @default("[]")
+  weaknesses               Json           @default("[]")
+  /// Per-criterion scores + snapshot of name/type/weight at scoring time
+  criteriaScores           Json           @map("criteria_scores")
+  estimatedYearsExperience Decimal?       @map("estimated_years_experience") @db.Decimal(4, 1)
+  estimatedLevelId         String?        @map("estimated_level_id") @db.Uuid
+  /// Claude model id, e.g. claude-opus-5-5
+  aiModel                  String         @map("model") @db.VarChar(64)
+  promptVersion            String         @map("prompt_version") @db.VarChar(32)
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  estimatedLevel JobLevel?   @relation(fields: [estimatedLevelId], references: [id], onDelete: SetNull)
+
+  @@map("evaluations")
+}
+
+/// Append-only log of status changes. changed_by_id = NULL means system / n8n.
+model ApplicationStatusHistory {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String             @map("application_id") @db.Uuid
+  fromStatus    ApplicationStatus? @map("from_status")
+  toStatus      ApplicationStatus  @map("to_status")
+  /// HR decision note, or the error message when evaluation fails
+  note          String?
+  changedById   String?            @map("changed_by_id") @db.Uuid
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedBy   User?       @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
+  @@map("application_status_history")
 }

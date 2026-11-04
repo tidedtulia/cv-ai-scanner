@@ -6,7 +6,14 @@ describe('UsersService', () => {
   let service: UsersService;
   let repo: jest.Mocked<UsersRepository>;
 
-  const user = { id: 'u1', name: 'Jane Doe', email: 'jane@example.com', createdAt: new Date(), updatedAt: new Date() };
+  const user = {
+    id: 'u1',
+    name: 'Jane Doe',
+    email: 'jane@example.com',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -33,12 +40,24 @@ describe('UsersService', () => {
     expect(service).toBeDefined();
   });
 
-  it('create() delegates to repository.create', async () => {
+  it('create() stores a password hash and a lowercased email', async () => {
     repo.create.mockResolvedValue(user);
-    const dto = { name: user.name, email: user.email };
 
-    await expect(service.create(dto)).resolves.toBe(user);
-    expect(repo.create).toHaveBeenCalledWith(dto);
+    await expect(
+      service.create({ name: user.name, email: 'Jane@Example.com', password: 's3cret-pass' }),
+    ).resolves.toBe(user);
+
+    const data = repo.create.mock.calls[0][0];
+    expect(data).toMatchObject({ name: user.name, email: 'jane@example.com' });
+    expect(data.passwordHash).toMatch(/^scrypt\$/);
+    expect(data).not.toHaveProperty('password');
+  });
+
+  it('create() rejects a missing password', async () => {
+    await expect(
+      service.create({ name: user.name, email: user.email, password: '' }),
+    ).rejects.toThrow('password is required');
+    expect(repo.create).not.toHaveBeenCalled();
   });
 
   it('findAll() returns all users from repository', async () => {
@@ -66,6 +85,17 @@ describe('UsersService', () => {
 
     await expect(service.update('u1', { name: 'Janet' })).resolves.toBe(updated);
     expect(repo.update).toHaveBeenCalledWith('u1', { name: 'Janet' });
+  });
+
+  it('update() hashes a new password and lowercases the email', async () => {
+    repo.update.mockResolvedValue(user);
+
+    await service.update('u1', { email: 'Janet@Example.com', password: 'n3w-pass' });
+
+    const [, data] = repo.update.mock.calls[0];
+    expect(data).toMatchObject({ email: 'janet@example.com' });
+    expect(data.passwordHash).toMatch(/^scrypt\$/);
+    expect(data).not.toHaveProperty('password');
   });
 
   it('remove() deletes the user by id', async () => {

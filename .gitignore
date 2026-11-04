@@ -62,6 +62,3 @@ rule.md
 
 # Nx graph output
 output.json
-
-# Prisma
-packages/backend/prisma/migrations/
