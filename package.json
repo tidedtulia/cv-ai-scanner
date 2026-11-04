@@ -10,9 +10,9 @@
     "affected:lint": "nx affected:lint",
     "build": "nx run-many -t build --all",
     "test": "nx run-many -t test --all",
-    "db:up": "docker-compose up -d",
-    "db:down": "docker-compose down",
-    "db:logs": "docker logs my-app-db"
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker-compose.dev.yml down",
+    "db:logs": "docker compose -f docker-compose.dev.yml logs -f db"
   },
   "private": true,
   "devDependencies": {
@@ -36,6 +36,7 @@
     "@swc/jest": "~0.2.38",
     "@testing-library/dom": "10.4.0",
     "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
     "@types/node": "20.19.9",
     "@types/react": "^19.0.0",
@@ -50,12 +51,14 @@
     "eslint-plugin-react": "7.35.0",
     "eslint-plugin-react-hooks": "5.0.0",
     "jest": "^30.0.2",
+    "jest-cucumber": "^4.5.0",
     "jest-environment-jsdom": "^30.0.2",
     "jest-environment-node": "^30.0.2",
     "jest-util": "^30.0.2",
     "nx": "22.6.5",
     "postcss": "8.4.38",
     "prettier": "^3.8.1",
+    "prisma": "^7.8.0",
     "tailwindcss": "3.4.3",
     "ts-jest": "^29.4.0",
     "ts-node": "10.9.1",
@@ -71,11 +74,15 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "axios": "^1.6.0",
-    "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.8.0",
+    "dotenv": "^17.4.2",
     "next": "~16.1.6",
+    "pg": "^8.20.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.0"
   }
 }

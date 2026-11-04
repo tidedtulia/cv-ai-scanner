@@ -8,6 +8,10 @@
     "lib": ["es2022"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "paths": {
+      "@prisma-client": ["./node_modules/.prisma/client"],
+      "@org/shared": ["./packages/shared/src/index.ts"]
+    },
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,

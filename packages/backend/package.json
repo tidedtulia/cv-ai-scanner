@@ -2,10 +2,16 @@
   "name": "@org/backend",
   "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "start:dev": "nest build --webpack --webpackPath webpack-hmr.config.js --watch"
+  },
   "nx": {
     "targets": {
       "build": {
         "executor": "nx:run-commands",
+        "outputs": [
+          "{workspaceRoot}/dist/packages/backend"
+        ],
         "options": {
           "command": "webpack-cli build",
           "args": [
@@ -65,8 +71,7 @@
         ],
         "options": {
           "buildTarget": "@org/backend:build",
-          "runBuildTargetDependencies": false,
-          "outputFileName": "packages/backend/dist/main.js"
+          "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
@@ -87,6 +92,7 @@
   "dependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
+    "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.0.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",
@@ -94,6 +100,9 @@
   },
   "devDependencies": {
     "@nestjs/testing": "^11.0.0",
-    "webpack-cli": "^5.1.4"
+    "run-script-webpack-plugin": "^0.2.3",
+    "webpack": "^5.106.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-node-externals": "^3.0.0"
   }
 }

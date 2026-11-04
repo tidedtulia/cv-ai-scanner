@@ -2,6 +2,12 @@ const { NxAppWebpackPlugin } = require('@nx/webpack/app-plugin');
 const { join } = require('path');
 
 module.exports = {
+  resolve: {
+    alias: {
+      '@prisma-client': join(__dirname, '../../node_modules/.prisma/client'),
+      '@org/shared': join(__dirname, '../shared/src'),
+    },
+  },
   output: {
     path: join(__dirname, '../../dist/packages/backend'),
     clean: true,
