@@ -19,7 +19,7 @@ Mỗi bước là **1 feature riêng** (branch + thư mục docs riêng). Thư m
 | Bước | Nội dung | Feature | Trạng thái |
 |------|----------|---------|------------|
 | 1.1 | Database: Prisma schema, migration, seed | `phase-1-foundation` (thư mục này) | ✅ Xong |
-| 1.2 | API công khai: job + danh mục | feature riêng — tạo khi bắt đầu | Chưa làm |
+| 1.2 | API công khai: job + danh mục | [`public-jobs-api`](../public-jobs-api/) | ✅ Xong |
 | 1.3 | API nộp đơn + upload Google Drive | feature riêng — tạo khi bắt đầu | Chưa làm |
 | 1.4 | Frontend: trang chủ, `/jobs`, cập nhật `/submit-cv` | feature riêng — tạo khi bắt đầu | Chưa làm |
 
