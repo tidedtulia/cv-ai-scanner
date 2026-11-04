@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "start:dev": "nest build --webpack --webpackPath webpack-hmr.config.js --watch"
+    "start:dev": "nest build --webpack --webpackPath webpack-hmr.config.js --watch",
+    "drive:auth": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/drive-auth.ts"
   },
   "nx": {
     "targets": {
