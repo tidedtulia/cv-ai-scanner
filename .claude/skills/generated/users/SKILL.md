@@ -5,7 +5,7 @@ description: "Skill for the Users area of cv-ai-scanner. 15 symbols across 3 fil
 
 # Users
 
-15 symbols | 3 files | Cohesion: 100%
+15 symbols | 3 files | Cohesion: 92%
 
 ## When to Use
 
@@ -25,30 +25,30 @@ description: "Skill for the Users area of cv-ai-scanner. 15 symbols across 3 fil
 
 Start here when exploring this area:
 
-- **`create`** (Method) — `packages/backend/src/app/modules/users/users.service.ts:8`
-- **`create`** (Method) — `packages/backend/src/app/modules/users/users.repository.ts:8`
+- **`create`** (Method) — `packages/backend/src/app/modules/users/users.service.ts:10`
+- **`create`** (Method) — `packages/backend/src/app/modules/users/users.repository.ts:18`
 - **`create`** (Method) — `packages/backend/src/app/modules/users/users.controller.ts:9`
-- **`findAll`** (Method) — `packages/backend/src/app/modules/users/users.service.ts:12`
-- **`findAll`** (Method) — `packages/backend/src/app/modules/users/users.repository.ts:16`
+- **`findAll`** (Method) — `packages/backend/src/app/modules/users/users.service.ts:21`
+- **`findAll`** (Method) — `packages/backend/src/app/modules/users/users.repository.ts:26`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `create` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 8 |
-| `create` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 8 |
+| `create` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 10 |
+| `create` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 18 |
 | `create` | Method | `packages/backend/src/app/modules/users/users.controller.ts` | 9 |
-| `findAll` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 12 |
-| `findAll` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 16 |
+| `findAll` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 21 |
+| `findAll` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 26 |
 | `findAll` | Method | `packages/backend/src/app/modules/users/users.controller.ts` | 14 |
-| `findOne` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 16 |
-| `findById` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 12 |
+| `findOne` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 25 |
+| `findById` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 22 |
 | `findOne` | Method | `packages/backend/src/app/modules/users/users.controller.ts` | 19 |
-| `update` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 20 |
-| `update` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 20 |
+| `update` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 29 |
+| `update` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 30 |
 | `update` | Method | `packages/backend/src/app/modules/users/users.controller.ts` | 24 |
-| `remove` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 24 |
-| `delete` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 27 |
+| `remove` | Method | `packages/backend/src/app/modules/users/users.service.ts` | 38 |
+| `delete` | Method | `packages/backend/src/app/modules/users/users.repository.ts` | 38 |
 | `remove` | Method | `packages/backend/src/app/modules/users/users.controller.ts` | 29 |
 
 ## Execution Flows
@@ -56,10 +56,18 @@ Start here when exploring this area:
 | Flow | Type | Steps |
 |------|------|-------|
 | `Create → Create` | intra_community | 3 |
+| `Create → HashPassword` | cross_community | 3 |
 | `Update → Update` | intra_community | 3 |
+| `Update → HashPassword` | cross_community | 3 |
 | `Remove → Delete` | intra_community | 3 |
 | `FindAll → FindAll` | intra_community | 3 |
 | `FindOne → FindById` | intra_community | 3 |
+
+## Connected Areas
+
+| Area | Connections |
+|------|-------------|
+| Prisma | 2 calls |
 
 ## How to Explore
 

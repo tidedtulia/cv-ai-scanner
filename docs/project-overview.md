@@ -329,9 +329,9 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 
 **Phase 1 — Nền tảng dữ liệu & trang công khai** — [features/phase-1-foundation](./features/phase-1-foundation/)
 - [x] Chốt [database.md](./database.md) → Prisma schema + migration + seed (nhóm vị trí, level, 3 vị trí hiện có + tiêu chí, 1 tài khoản HR)
-- [ ] Backend: module `positions` + danh mục (public API, chỉ trả dữ liệu công khai), module `applications` (nhận đơn, validate PDF ≤ 10MB, upload Drive, insert + lịch sử)
-- [ ] Frontend: trang chủ giới thiệu dự án; trang `/jobs`
-- [ ] Frontend `/submit-cv`: lấy job từ API thay vì hardcode, chọn sẵn theo `?position=`, hiện JD + tên tiêu chí, **chỉ nhận PDF** (cập nhật AC-1 / AC-2 / AC-4 của submit-cv), gọi API thật
+- [x] 1.2 Backend: module `positions` + danh mục (public API, chỉ trả dữ liệu công khai) — [features/public-jobs-api](./features/public-jobs-api/)
+- [ ] 1.3 Backend: module `applications` (nhận đơn, validate PDF ≤ 10MB, upload Drive, insert + lịch sử)
+- [ ] 1.4 Frontend: trang chủ giới thiệu dự án; trang `/jobs`; `/submit-cv` lấy job từ API thay vì hardcode, chọn sẵn theo `?position=`, hiện JD + tên tiêu chí, **chỉ nhận PDF** (cập nhật AC-1 / AC-2 / AC-4 của submit-cv), gọi API thật
 
 **Phase 2 — Đánh giá CV (n8n + MCP + Claude)**
 - [ ] Thêm n8n vào Docker Compose: database riêng `n8n`, `GENERIC_TIMEZONE=Asia/Ho_Chi_Minh`, `N8N_ENCRYPTION_KEY` cố định; tạo DB role `n8n_app`, `mcp_readonly`
