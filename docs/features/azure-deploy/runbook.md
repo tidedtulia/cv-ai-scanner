@@ -4,6 +4,8 @@ Dành cho người chưa từng dùng Azure. Mỗi bước là lệnh chép ch�
 
 > **Trạng thái:** các file Docker và Bicep đã được kiểm tra trên máy (`npm run docker:check`, `npm run bicep:check`). **Chưa từng triển khai thật lên Azure** — lần đầu có thể gặp lỗi riêng của tài khoản/subscription; xem mục [Sự cố thường gặp](#7-sự-cố-thường-gặp) và ghi kết quả vào [tasks.md](./tasks.md).
 
+> **Không muốn cài `az` / Docker trên máy?** Mục [10](#10-làm-bằng-azure-portal-và-cloud-shell) làm gần hết bằng trình duyệt: Portal + Azure Cloud Shell.
+
 ## 0. Trước khi bắt đầu
 
 | Cần | Cách có |
@@ -299,3 +301,97 @@ Phương án thay thế **không khuyên**: tắt hẳn Log Analytics (mất l�
 - **PostgreSQL truy cập công khai** (TLS + tường lửa "Azure services"): mọi dịch vụ Azure có thể *thử* kết nối nhưng cần mật khẩu. Muốn chặt hơn: VNet integration + private endpoint (ngoài phạm vi MVP).
 - **Secrets** nằm trong Container Apps secrets (mã hoá khi lưu) chứ chưa dùng Key Vault; chuyển sang Key Vault bằng managed identity + `secretRef` kiểu `keyVaultUrl` khi cần chính sách xoay vòng.
 - **Chưa có tự động triển khai**: GitHub Actions chỉ build + đẩy image; cập nhật app bằng tay theo 6.1.
+
+## 10. Làm bằng Azure Portal và Cloud Shell
+
+Dùng khi bạn không muốn cài Azure CLI, Docker hay Bicep trên máy. **Cloud Shell** là terminal chạy trong trình duyệt (nút `>_` ở thanh trên của https://portal.azure.com), đã đăng nhập sẵn, có `az` (kèm Bicep), `git`, `openssl`, `psql`. **Không có Docker.** Mọi thứ khác trong runbook (Google OAuth, GitHub Actions build image, đổi gói sang Public, Gmail App Password) không đổi.
+
+> **Chưa kiểm chứng trên Cloud Shell thật.** Các điểm cần xác nhận khi làm: phiên bản `psql` (cần ≥ 15), tường lửa PostgreSQL có cho Cloud Shell kết nối không, và giao diện Portal (thay đổi thường xuyên). Gặp khác thì ghi lại vào [tasks.md](./tasks.md).
+
+### 10.1 Mỗi bước của runbook làm ở đâu
+
+| Bước runbook | Làm trên Portal / Cloud Shell |
+|--------------|-------------------------------|
+| 1.1 Đăng ký provider | Portal → **Subscriptions** → subscription của bạn → **Resource providers** → tìm và **Register**: `Microsoft.App`, `Microsoft.DBforPostgreSQL`, `Microsoft.OperationalInsights` |
+| 1.2 Tạo resource group | Portal → **Resource groups → Create** (tên `cvs-rg`, vùng *Southeast Asia*) |
+| 1.3, 1.4 Google OAuth, bí mật | OAuth làm trên Google Cloud Console. Bí mật: Cloud Shell (`openssl rand`, như 1.4) |
+| 1.5 File tham số | Cloud Shell (10.2) |
+| 2 Dựng hạ tầng | Cloud Shell `az deployment group create` (10.2), hoặc Portal **Deploy a custom template** (10.3) |
+| 3.1 Build image | GitHub Actions (không đổi) |
+| 3.2 Migrate + seed | Sau pha 2: Portal → **Container Apps Jobs → `cvs-migrate` → Run now** (10.4) |
+| 3.3 `init-db.sh` | Cloud Shell, `psql` (10.4) |
+| 4 Pha 2 | như bước 2 với `DEPLOY_APPS=true` |
+| 5 Kiểm tra | Portal (10.5) |
+| 6 Vận hành | Portal (10.6) |
+
+### 10.2 Dựng hạ tầng bằng Cloud Shell
+
+Mở Cloud Shell, chọn **Bash**, rồi:
+
+```bash
+git clone https://github.com/tidedtulia/cv-ai-scanner && cd cv-ai-scanner
+export RG=cvs-rg PREFIX=cvs LOCATION=southeastasia
+# đặt các bí mật như mục 1.4 (openssl rand / read -rs), lưu vào trình quản lý mật khẩu ngay
+cp infra/azure/main.example.bicepparam infra/azure/main.bicepparam
+nano infra/azure/main.bicepparam            # sửa các giá trị thường (mục 1.5); adminIp: xem dưới
+az deployment group create -g $RG -f infra/azure/main.bicep -p infra/azure/main.bicepparam
+```
+
+Biến môi trường mất khi Cloud Shell hết phiên (khoảng 20 phút không dùng): mở lại thì đặt lại biến (bí mật lấy từ trình quản lý mật khẩu). Repo nằm trong ổ đĩa của Cloud Shell nên còn lại.
+
+### 10.3 Hoặc dựng bằng form của Portal ("Deploy a custom template")
+
+Portal không biên dịch Bicep, nên cần file ARM JSON:
+- Cloud Shell: `az bicep build --file infra/azure/main.bicep --outfile main.json`, rồi nút **Manage files → Download** để tải `main.json`. (Trên máy có Node: `npm run bicep:build` tạo `tmp/azure/main.json`.)
+- Portal → ô tìm kiếm **Deploy a custom template → Build your own template in the editor → Load file** → chọn `main.json` → **Save**.
+- Chọn resource group `cvs-rg`, điền tham số. Các tham số bí mật (`postgresAdminPassword`, `jwtSecret`, …) là ô nhập mật khẩu; `deployApps` và `imageTag` nhập tay (pha 1: `false`; pha 2: `true` + tag). `n8nAllowedCidr` nhập dạng mảng JSON, ví dụ `["203.0.113.7/32"]`.
+- **Review + create** → **Create**.
+
+File `main.json` không chứa bí mật (bí mật chỉ nhập lúc triển khai); nó nằm trong `tmp/` (không commit).
+
+### 10.4 Khởi tạo database mà không cần Docker
+
+Thứ tự khác runbook gốc, vì không có Docker để chạy migrate trước: **pha 1 → build image → pha 2 → migrate → init-db**.
+
+1. Pha 1 (`deployApps=false`), build image bằng GitHub Actions, rồi **pha 2** (`DEPLOY_APPS=true IMAGE_TAG=<tag>`).
+   **Đừng triển khai pha 2 trong khung giờ 23:50–02:00** (giờ Việt Nam): n8n sẽ bật lên khi database `n8n` chưa có và lặp lại lỗi cho tới khi xong bước dưới (ngoài khung giờ n8n ở 0 replica nên không sao).
+2. **Migrate + seed:** Portal → **Container Apps Jobs → `cvs-migrate` → Run now**; xem **Execution history** phải là *Succeeded* (log: tab Logs / `az containerapp job execution list -g $RG -n $PREFIX-migrate -o table`). Job đã đặt sẵn `SEED_SAMPLE_DATA=false`, `SEED_HR_EMAIL`, `SEED_HR_PASSWORD`.
+3. **`init-db.sh`** từ Cloud Shell (cần `psql` ≥ 15: kiểm tra `psql --version`):
+
+```bash
+out() { az deployment group show -g $RG -n main --query "properties.outputs.$1.value" -o tsv; }
+export PGHOST=$(out postgresHost) DBNAME=$(out appDatabaseName) PGSERVER=$(out postgresName)
+# cho Cloud Shell kết nối vào PostgreSQL (IP của Cloud Shell thay đổi theo phiên)
+export MY_IP=$(curl -s https://api.ipify.org)
+az postgres flexible-server firewall-rule create -g $RG -n $PGSERVER --rule-name CloudShell --start-ip-address $MY_IP --end-ip-address $MY_IP
+PGSSLMODE=require POSTGRES_USER=cvsadmin POSTGRES_PASSWORD=$POSTGRES_ADMIN_PASSWORD POSTGRES_DB=$DBNAME \
+  N8N_DB_PASSWORD=$N8N_DB_PASSWORD N8N_APP_DB_PASSWORD=$N8N_APP_DB_PASSWORD MCP_DB_PASSWORD=$MCP_DB_PASSWORD \
+  sh n8n/setup/init-db.sh
+az postgres flexible-server firewall-rule delete -g $RG -n $PGSERVER --rule-name CloudShell --yes     # đóng lại
+```
+
+Thành công: `n8n-init: database n8n + roles n8n / n8n_app / mcp_readonly are up to date`. Nếu `psql` cũ hơn 15 (lỗi ở `\getenv`), chạy bước này từ máy có Docker (mục 3.3).
+
+### 10.5 Kiểm tra trên Portal
+
+- **Resource group `cvs-rg`** phải có: Container Apps Environment, `cvs-frontend`, `cvs-backend`, `cvs-n8n`, job `cvs-migrate`, PostgreSQL flexible server, Log Analytics workspace (**không** có Container Registry).
+- **`cvs-frontend` → Overview → Application Url**: mở trang, thêm `/api/health/ready` để xem `{"status":"ok","database":"up"}`; đăng nhập `/hr/login`.
+- **`cvs-backend` → Ingress**: *Ingress traffic* phải là **Limited to Container Apps Environment** (không công khai).
+- **`cvs-n8n` → Scale**: có rule `night-window` (cron) và `editor` (HTTP); **Revisions and replicas**: ngoài khung giờ không có replica là đúng.
+- **Log**: Container App → **Log stream** (đang chạy) hoặc **Logs** (Log Analytics, truy vấn `ContainerAppConsoleLogs_CL`).
+- **PostgreSQL → Overview**: *Compute* `Standard_B1ms`; **Cost Management → Free services** để xem giờ miễn phí đang dùng.
+
+### 10.6 Vận hành trên Portal
+
+| Việc | Ở đâu |
+|------|-------|
+| Đổi secret (ví dụ `smtp-password`) | Container App → **Secrets** → sửa → **Save**; rồi app → **Revisions** → tạo revision mới / Restart để áp dụng |
+| Đổi biến môi trường | Container App → **Containerization → Containers → Edit** → **Environment variables** |
+| Đổi khung giờ n8n | `cvs-n8n` → **Scale** → rule `night-window` → sửa `start` / `end` (hoặc chạy lại Bicep để giữ cấu hình nhất quán; sửa tay trên Portal sẽ bị Bicep ghi đè ở lần deploy sau) |
+| Cập nhật phiên bản | chạy workflow *Build images* với tag mới → Container App → **Containerization → Edit** → đổi *Image tag* → **Save**; migrate: **Jobs → `cvs-migrate` → Run now** (job cũng cần đổi tag) |
+| Quay lui | Container App → **Revisions** → chọn revision cũ → **Activate** |
+| Mở IP vào n8n | `cvs-n8n` → **Networking → Ingress → IP restrictions** (hoặc `n8nAllowedCidr` trong Bicep) |
+| Dừng / bật PostgreSQL | PostgreSQL → **Overview → Stop / Start** |
+| Xoá tất cả | Resource group → **Delete resource group** |
+
+Sửa tay trên Portal lệch khỏi Bicep: lần chạy Bicep sau sẽ **ghi đè** các giá trị đó. Với thay đổi lâu dài hãy sửa trong `main.bicepparam` rồi deploy lại (10.2).
