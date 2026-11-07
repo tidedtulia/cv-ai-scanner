@@ -80,7 +80,7 @@ param seedHrName string = 'HR Admin'
 
 // ---------------------------------------------------------------- secrets
 @secure()
-@description('Use hex (openssl rand -hex 24): it goes into a connection URL.')
+@description('Azure requires 8-128 characters with at least 3 of: upper case, lower case, digit, symbol (plain hex has only 2 kinds). It is URL-encoded in the connection string, so any of them is fine.')
 param postgresAdminPassword string
 @secure()
 param jwtSecret string = ''

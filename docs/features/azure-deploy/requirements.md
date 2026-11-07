@@ -178,7 +178,7 @@ migrate Job (image backend): prisma migrate deploy + seed HR đầu tiên
 #### AC-11: Runbook
 
 **Then:** [runbook.md](./runbook.md) cho người chưa từng dùng Azure, mỗi bước là lệnh chép chạy được (biến ở đầu file), theo thứ tự:
-1. Điều kiện: tài khoản Azure + `az login`, đăng ký provider, **xuất bản ứng dụng Google OAuth lên Production** (nếu không thì refresh token hết hạn sau 7 ngày), tạo các bí mật (`openssl rand`), Gmail App Password.
+1. Điều kiện: tài khoản Azure + `az login`, đăng ký provider, chuẩn bị Branding của ứng dụng Google OAuth, tạo các bí mật (`openssl rand`), Gmail App Password. **Xuất bản ứng dụng Google OAuth lên Production làm sau khi triển khai** (Google đòi URL trang chủ và chính sách riêng tư, frontend đã có `/` và `/privacy`; nếu không xuất bản thì refresh token hết hạn sau 7 ngày).
 2. Dựng hạ tầng (Bicep) → build image (GitHub Actions → `ghcr.io`, đổi các gói sang public một lần) → cập nhật app.
 3. Khởi tạo DB: `init-db.sh` (qua `docker run postgres:17-alpine` với tường lửa mở tạm cho IP của bạn), rồi Job `migrate`.
 4. Kiểm tra: URL frontend, `/api/health/ready`, đăng nhập HR, nộp CV thử, n8n (IP được phép, WF-1 đang active, thử chạy tay), email thử qua `mail:check`.

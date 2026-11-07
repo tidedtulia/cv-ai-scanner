@@ -48,6 +48,7 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md) · Hư�
 
 ## Còn lại
 
+- [ ] Google OAuth: Google đòi *Application home page* + *privacy policy link* mới cho xuất bản (tooltip của nút Publish app); làm ở runbook bước 5.6 sau khi có URL frontend. **Chưa biết** Google có chấp nhận tên miền `*.azurecontainerapps.io` làm Authorized domain không; nếu không thì cần tên miền riêng hoặc trang tĩnh trên tên miền do bạn kiểm soát
 - [ ] CI/CD (GitHub Actions) — ngoài phạm vi, làm sau nếu cần
 - [ ] Tên miền riêng + chứng chỉ; Key Vault; VNet / private endpoint cho Postgres; dịch vụ gửi mail có SPF / DKIM (khi có domain)
 - [ ] Tự động xoá CV sau 12 tháng (Q7)
