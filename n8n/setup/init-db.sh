@@ -58,6 +58,11 @@ REVOKE ALL ON DATABASE :"app_db" FROM n8n, n8n_app, mcp_readonly;
 GRANT CONNECT, TEMPORARY ON DATABASE :"app_db" TO :"app_user";
 GRANT CONNECT ON DATABASE :"app_db" TO n8n_app, mcp_readonly;
 
+-- n8n creates its own tables in schema public of database n8n. On a managed Postgres (Azure) that schema is not owned by the
+-- database owner as it is in a plain Postgres 15+ (pg_database_owner), so role n8n would get "permission denied for schema public".
+\connect n8n
+GRANT USAGE, CREATE ON SCHEMA public TO n8n;
+
 \connect :"app_db"
 
 DO $$

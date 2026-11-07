@@ -52,3 +52,4 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md) · Hư�
 - [ ] CI/CD (GitHub Actions) — ngoài phạm vi, làm sau nếu cần
 - [ ] Tên miền riêng + chứng chỉ; Key Vault; VNet / private endpoint cho Postgres; dịch vụ gửi mail có SPF / DKIM (khi có domain)
 - [ ] Tự động xoá CV sau 12 tháng (Q7)
+- [x] **Lỗi thấy khi triển khai thật (2026-11-08):** n8n `Failed` với `permission denied for schema public` vì trên Azure schema `public` của database `n8n` không thuộc chủ database; `init-db.sh` giờ `GRANT USAGE, CREATE ON SCHEMA public TO n8n` trong database `n8n`, và `docker:check` mô phỏng điều kiện này

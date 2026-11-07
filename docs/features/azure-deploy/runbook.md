@@ -279,6 +279,7 @@ Mặc định n8n **không chạy cả ngày**: chỉ có replica từ `n8nWindo
 | Bước 3.3 báo thiếu quyền / `must be able to SET ROLE` | Admin của Azure thiếu `CREATEROLE`: kiểm tra `az postgres flexible-server show`; script đã `GRANT n8n TO <admin> WITH SET TRUE, INHERIT TRUE`; gửi nguyên văn lỗi để xử lý |
 | `psql: could not connect` / timeout | IP chưa nằm trong `adminIp` (IP đổi theo nhà mạng) → cập nhật và deploy lại |
 | n8n không sẵn sàng, log nêu `self-signed certificate` / `unable to verify` | Đặt `verifyDatabaseCertificate = false` (chỉ khi bắt buộc), deploy lại |
+| n8n `Unhealthy / Failed`, log có `permission denied for schema public` (khi tạo bảng migrations) | Trên Azure schema `public` của database `n8n` không thuộc chủ database nên role `n8n` thiếu quyền `CREATE`. `init-db.sh` bản mới đã cấp quyền: chạy lại bước 3.3 rồi tạo revision mới cho n8n (`az containerapp update -g $RG -n $CVS_PREFIX-n8n --revision-suffix "r$(date +%m%d%H%M)"`) |
 | n8n *crash loop* với `database "n8n" does not exist` | Chưa chạy bước 3.3 → chạy rồi `az containerapp revision restart ...` |
 | Trang chạy nhưng `/api/*` lỗi 502/504 sau thời gian không dùng | Backend vừa tỉnh dậy từ 0 replica (vài giây); lần thứ hai bình thường. Muốn không bao giờ chậm: `backendMinReplicas = 1` (tốn thêm ~5–8 USD/tháng) |
 | `/api/*` luôn 404 qua frontend | `BACKEND_URL` lúc **build** frontend sai → build lại với đúng `http://<CVS_PREFIX>-backend` |
