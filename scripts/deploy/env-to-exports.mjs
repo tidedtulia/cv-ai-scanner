@@ -52,7 +52,7 @@ for (const [target, source] of Object.entries(MAP)) {
     continue;
   }
   if (target === 'POSTGRES_ADMIN_PASSWORD' && !azureAdminOk(value)) {
-    warnings.push('POSTGRES_PASSWORD is not complex enough for the Azure admin (needs 3 of: upper, lower, digit, symbol; 8-128 characters): NOT exported, make a new one: export POSTGRES_ADMIN_PASSWORD="Aa1-$(openssl rand -hex 16)"');
+    warnings.push('POSTGRES_PASSWORD is not complex enough for the Azure admin (needs 3 of: upper, lower, digit, symbol; 8-128 characters): NOT exported. First deployment: make one, export POSTGRES_ADMIN_PASSWORD="Aa1-$(openssl rand -hex 16)". Server already created: keep using the one you saved (do NOT make a new one, it would not match the server)');
     continue;
   }
   if (/[\r\n]/.test(value)) {
