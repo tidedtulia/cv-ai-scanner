@@ -38,9 +38,10 @@ Bối cảnh: [project-overview.md](../../project-overview.md) (D1, D2, D14) · 
 | `email` | ✔ | `isValidEmail` (shared), ≤ 255, lưu chữ thường |
 | `position` | ✔ | `code` của 1 job đang `OPEN` (PQ4) |
 | `cv` | ✔ | PDF thật (đuôi `.pdf` **và** nội dung bắt đầu bằng `%PDF-`), ≤ 10MB (`CV_MAX_FILE_SIZE_BYTES`) |
+| `consent` | ✔ | phải đúng `true` — đồng ý chính sách quyền riêng tư (thêm ở bước 1.4, [fe-public-pages](../fe-public-pages/requirements.md) FQ2) |
 
 - Thành công → **201** `{ "message": "Submit CV successfully" }`.
-- Lỗi → mã lỗi + `{ "statusCode", "message", "error" }` (định dạng mặc định của NestJS). Form hiện đã đọc `message` khi lỗi; ở bước 1.4 form sẽ đổi từ kiểm tra `success` sang kiểm tra `res.ok`.
+- Lỗi → `{ "statusCode", "error", "code", "message" }` (type `ApplicationErrorResponse`). `code` là key của `APPLICATION_MESSAGES`, form song ngữ dùng nó để hiện đúng ngôn ngữ; `message` luôn là bản tiếng Anh.
 
 ### Luồng xử lý
 
@@ -77,8 +78,9 @@ Bối cảnh: [project-overview.md](../../project-overview.md) (D1, D2, D14) · 
 | Thiếu `cv` | 400 | `Please upload your CV` |
 | Không phải PDF (theo đuôi hoặc nội dung) | 400 | `Only PDF files are accepted` |
 | File > 10MB | **413** | `File size must not exceed 10MB` |
+| Thiếu / sai `consent` | 400 | `Please agree to the privacy policy to apply` |
 
-Field gửi lặp (`name=a&name=b`) bị coi là thiếu.
+Field gửi lặp (`name=a&name=b`) bị coi là thiếu. CV **đúng** 10MB được nhận: busboy coi file là quá lớn ngay khi đạt đúng giới hạn, nên multer đặt `CV_MAX_FILE_SIZE_BYTES + 1` (sửa ở bước 1.4).
 
 ### AC-3: Job không nhận đơn
 

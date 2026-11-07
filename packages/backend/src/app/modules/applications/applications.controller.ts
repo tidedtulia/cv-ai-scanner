@@ -14,8 +14,10 @@ export class ApplicationsController {
   @UseFilters(CvTooLargeFilter)
   @UseInterceptors(
     FileInterceptor(APPLICATION_FORM_FIELDS.CV, {
-      // Memory storage; multer stops reading once the file passes the limit
-      limits: { fileSize: CV_MAX_FILE_SIZE_BYTES, files: 1 },
+      // Memory storage; multer stops reading once the file passes the limit.
+      // +1: busboy flags a file as too large as soon as it *reaches* fileSize, so a CV of exactly
+      // CV_MAX_FILE_SIZE_BYTES would be rejected; this keeps "≤ 10MB" allowed and 10MB + 1 byte rejected.
+      limits: { fileSize: CV_MAX_FILE_SIZE_BYTES + 1, files: 1 },
       // Busboy defaults to latin1, which garbles Vietnamese file names
       defParamCharset: 'utf8',
     }),

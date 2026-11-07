@@ -61,7 +61,7 @@ flowchart LR
 
 | Thành phần | Trách nhiệm | Hiện trạng |
 |------------|-------------|------------|
-| Frontend — trang công khai | `/` giới thiệu dự án; `/jobs` danh sách job đang tuyển; `/submit-cv` form ứng tuyển | Có `/submit-cv` (API mock; vị trí hardcode trong `src/data/positions.ts`; đang nhận cả `.doc/.docx`). Trang chủ vẫn là trang mặc định của Nx; chưa có `/jobs` |
+| Frontend — trang công khai | `/` giới thiệu dự án; `/jobs` danh sách job đang tuyển; `/submit-cv` form ứng tuyển; `/privacy` | ✅ Xong (Phase 1.4), song ngữ vi / en, gọi API thật qua rewrite |
 | Frontend — trang HR | Đăng nhập, danh sách / chi tiết đơn, quyết định, quản lý job & danh mục | Chưa có |
 | Backend | Nhận & validate đơn, upload CV lên Drive, auth HR, API cho HR, **gửi email kết quả**, **sở hữu schema DB (Prisma migration)** | Mới có module `users` mẫu |
 | PostgreSQL | Lưu toàn bộ dữ liệu; là **"hợp đồng" chung giữa backend, n8n và MCP** | Có (Docker); schema mới có bảng `users` |
@@ -262,9 +262,12 @@ overall_score (0–100) = Σ(score_i × weight_i) / Σ(weight_i) × 10
 |-------|----------|
 | `/` | Giới thiệu dự án; nút dẫn sang `/jobs` |
 | `/jobs` | Tóm tắt các job `OPEN`: tiêu đề, nhóm, level, số năm kinh nghiệm, tên các tiêu chí dạng tag; lọc theo nhóm / level; nút "Ứng tuyển" → `/submit-cv?position=<code>` |
-| `/submit-cv` | Form ứng tuyển (đã có). Job được chọn sẵn theo `?position=`; hiện **JD đầy đủ** + tên các tiêu chí của job đang chọn (D10) |
+| `/submit-cv` | Form ứng tuyển. Job được chọn sẵn theo `?position=`; hiện **JD đầy đủ** + tên các tiêu chí của job đang chọn (D10); checkbox đồng ý bắt buộc (D21) |
+| `/privacy` | Chính sách quyền riêng tư (D21) — cũng là điều kiện để publish OAuth app của Google |
 
 Ứng viên chỉ thấy JD và tên / loại tiêu chí. Hướng dẫn chấm, trọng số và cờ bắt buộc là dữ liệu nội bộ (D9) — API công khai không trả các trường này.
+
+Giao diện **song ngữ vi / en** (D20): URL không đổi, ngôn ngữ lưu trong cookie, lần đầu theo trình duyệt (mặc định vi). Nội dung job hiển thị đúng như HR nhập. Chi tiết: [features/fe-public-pages](./features/fe-public-pages/).
 
 ### 8.2 Trang HR
 
@@ -330,8 +333,8 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 **Phase 1 — Nền tảng dữ liệu & trang công khai** — [features/phase-1-foundation](./features/phase-1-foundation/)
 - [x] Chốt [database.md](./database.md) → Prisma schema + migration + seed (nhóm vị trí, level, 3 vị trí hiện có + tiêu chí, 1 tài khoản HR)
 - [x] 1.2 Backend: module `positions` + danh mục (public API, chỉ trả dữ liệu công khai) — [features/public-jobs-api](./features/public-jobs-api/)
-- [x] 1.3 Backend: module `applications` (nhận đơn, validate PDF ≤ 10MB, upload Drive, insert + lịch sử) — [features/submit-application-api](./features/submit-application-api/); Drive thật chờ credentials
-- [ ] 1.4 Frontend: trang chủ giới thiệu dự án; trang `/jobs`; `/submit-cv` lấy job từ API thay vì hardcode, chọn sẵn theo `?position=`, hiện JD + tên tiêu chí, **chỉ nhận PDF** (cập nhật AC-1 / AC-2 / AC-4 của submit-cv), gọi API thật
+- [x] 1.3 Backend: module `applications` (nhận đơn, validate PDF ≤ 10MB, upload Drive, insert + lịch sử) — [features/submit-application-api](./features/submit-application-api/); đã chạy với Drive thật (OAuth app còn ở *Testing* → token hết hạn sau 7 ngày, publish khi có website)
+- [x] 1.4 Frontend: trang chủ, `/jobs`, `/submit-cv` gọi API thật (chọn sẵn `?position=`, JD + tiêu chí, **chỉ PDF**, đồng ý xử lý dữ liệu), `/privacy`; song ngữ vi / en — [features/fe-public-pages](./features/fe-public-pages/)
 
 **Phase 2 — Đánh giá CV (n8n + MCP + Claude)**
 - [ ] Thêm n8n vào Docker Compose: database riêng `n8n`, `GENERIC_TIMEZONE=Asia/Ho_Chi_Minh`, `N8N_ENCRYPTION_KEY` cố định; tạo DB role `n8n_app`, `mcp_readonly`
@@ -384,6 +387,11 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D17 | 2026-11-04 | WF-1 lấy đơn theo `status = SUBMITTED` (không lọc theo ngày nộp) để không bỏ sót đơn. |
 | D18 | 2026-11-04 | HR không sửa nội dung email; hộp thoại xác nhận hiện bản xem trước (chỉ đọc). Mẫu email là file trong backend; gửi từ 1 hộp thư HR chung. |
 | D19 | 2026-11-04 | Giai đoạn đầu chạy bằng Docker local; sau đó triển khai lên Azure cùng frontend và backend. |
+| D20 | 2026-11-07 | Trang công khai **song ngữ vi / en**: giữ nguyên URL + cookie `locale`; lần đầu theo `Accept-Language` (mặc định vi); chỉ giao diện song ngữ, nội dung job giữ nguyên; từ điển tự viết. |
+| D21 | 2026-11-07 | Có trang `/privacy` + **checkbox đồng ý bắt buộc** (FE + BE kiểm tra field `consent`); không thêm cột DB. |
+| D22 | 2026-11-07 | Frontend gọi backend qua **Next.js rewrites** (`/api/*` → `BACKEND_URL`), không bật CORS. |
+| D23 | 2026-11-07 | JD markdown hiển thị bằng **react-markdown**. |
+| D24 | 2026-11-07 | `/privacy`: email nhận yêu cầu về dữ liệu `trantrieu491@gmail.com`; lưu CV **12 tháng** kể từ khi nộp, sau đó xoá. |
 
 ---
 
@@ -395,6 +403,6 @@ Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏ
 |---|---------|---------|
 | Q5 | **Model Claude:** mặc định `claude-opus-5-5` (chất lượng cao nhất trong dòng Opus). Bạn có muốn dùng model rẻ hơn (vd `claude-sonnet-5-5`) cho lượng CV lớn không? | Giữ `claude-opus-5-5`; nếu muốn đổi thì so sánh trên bộ CV mẫu trước. |
 | Q6 | **Phân quyền HR:** mọi HR có quyền như nhau, hay cần vai trò Admin (quản lý tài khoản / job / danh mục) tách với HR? | 1 vai trò cho MVP. |
-| Q7 | **Dữ liệu cá nhân:** có cần checkbox đồng ý trên form và tự động xoá CV sau X tháng không? | Có checkbox; thời hạn lưu trữ do bạn / bộ phận pháp chế quyết định. |
+| Q7 | **Dữ liệu cá nhân:** checkbox đồng ý (D21), email + thời hạn 12 tháng (D24) đã chốt. Còn lại: `/privacy` cam kết xoá sau 12 tháng → **tự động xoá CV (Drive) + đơn (DB) bằng job định kỳ**, hay HR xoá tay? | Job định kỳ (vd chạy cùng n8n hoặc cron của backend) — làm sau MVP, trước khi chạy thật đủ 12 tháng. |
 | Q11 | **HR xem CV bằng cách nào?** Mở link Drive (HR cần quyền vào thư mục), hay backend proxy file để nhúng trình xem PDF ngay trong trang HR? | Mở link Drive cho MVP. |
 | Q12 | **Dịch vụ Azure cụ thể** khi triển khai (Container Apps hay App Service; PostgreSQL Flexible Server; Key Vault). Chưa cần chốt ngay. | Container Apps cho cả backend, frontend, n8n (cùng 1 cách deploy bằng container) + PostgreSQL Flexible Server — chốt ở Phase 5. |

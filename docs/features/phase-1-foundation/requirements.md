@@ -20,8 +20,8 @@ Mỗi bước là **1 feature riêng** (branch + thư mục docs riêng). Thư m
 |------|----------|---------|------------|
 | 1.1 | Database: Prisma schema, migration, seed | `phase-1-foundation` (thư mục này) | ✅ Xong |
 | 1.2 | API công khai: job + danh mục | [`public-jobs-api`](../public-jobs-api/) | ✅ Xong |
-| 1.3 | API nộp đơn + upload Google Drive | [`submit-application-api`](../submit-application-api/) | ✅ Xong (Drive thật: chờ credentials) |
-| 1.4 | Frontend: trang chủ, `/jobs`, cập nhật `/submit-cv` | feature riêng — tạo khi bắt đầu | Chưa làm |
+| 1.3 | API nộp đơn + upload Google Drive | [`submit-application-api`](../submit-application-api/) | ✅ Xong |
+| 1.4 | Frontend: trang chủ, `/jobs`, cập nhật `/submit-cv`, `/privacy` (song ngữ) | [`fe-public-pages`](../fe-public-pages/) | ✅ Xong |
 
 Yêu cầu chi tiết của bước 1.2–1.4 nằm trong `requirements.md` của từng feature.
 

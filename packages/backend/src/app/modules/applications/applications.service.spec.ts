@@ -1,6 +1,6 @@
 import { BadRequestException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { APPLICATION_MESSAGES } from '@org/shared';
+import { APPLICATION_MESSAGES, ApplicationMessageCode } from '@org/shared';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService, UploadedCvFile } from './applications.service';
 import { CvStorage } from './storage/cv-storage';
@@ -15,7 +15,7 @@ describe('ApplicationsService', () => {
     const buffer = Buffer.from(content);
     return { originalname, size: buffer.length, buffer };
   };
-  const body = { name: '  Nguyễn Văn A ', email: ' Jane.Doe@Example.com ', position: 'frontend-dev' };
+  const body = { name: '  Nguyễn Văn A ', email: ' Jane.Doe@Example.com ', position: 'frontend-dev', consent: 'true' };
 
   beforeEach(async () => {
     logError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
@@ -64,21 +64,23 @@ describe('ApplicationsService', () => {
     expect(upload.fileName).toContain(`_${saved.id.slice(0, 8)}.pdf`);
   });
 
-  it.each([
-    ['missing name', { ...body, name: '   ' }, pdf(), APPLICATION_MESSAGES.NAME_REQUIRED],
-    ['name too long', { ...body, name: 'a'.repeat(256) }, pdf(), APPLICATION_MESSAGES.NAME_TOO_LONG],
-    ['missing email', { ...body, email: undefined }, pdf(), APPLICATION_MESSAGES.EMAIL_REQUIRED],
-    ['invalid email', { ...body, email: 'not-an-email' }, pdf(), APPLICATION_MESSAGES.EMAIL_INVALID],
-    ['missing position', { ...body, position: '' }, pdf(), APPLICATION_MESSAGES.POSITION_REQUIRED],
-    ['missing CV', body, undefined, APPLICATION_MESSAGES.CV_REQUIRED],
-    ['not a .pdf file', body, pdf('cv.docx'), APPLICATION_MESSAGES.CV_NOT_PDF],
-    ['.pdf name but not PDF content', body, pdf('cv.pdf', 'PK\u0003\u0004 a zip/docx'), APPLICATION_MESSAGES.CV_NOT_PDF],
-    ['repeated field (array)', { ...body, name: ['a', 'b'] }, pdf(), APPLICATION_MESSAGES.NAME_REQUIRED],
-  ])('submit() rejects %s with 400 (AC-2)', async (_case, input, file, message) => {
+  it.each<[string, Record<string, unknown>, UploadedCvFile | undefined, ApplicationMessageCode]>([
+    ['missing name', { ...body, name: '   ' }, pdf(), 'NAME_REQUIRED'],
+    ['name too long', { ...body, name: 'a'.repeat(256) }, pdf(), 'NAME_TOO_LONG'],
+    ['missing email', { ...body, email: undefined }, pdf(), 'EMAIL_REQUIRED'],
+    ['invalid email', { ...body, email: 'not-an-email' }, pdf(), 'EMAIL_INVALID'],
+    ['missing position', { ...body, position: '' }, pdf(), 'POSITION_REQUIRED'],
+    ['missing CV', body, undefined, 'CV_REQUIRED'],
+    ['not a .pdf file', body, pdf('cv.docx'), 'CV_NOT_PDF'],
+    ['.pdf name but not PDF content', body, pdf('cv.pdf', 'PK\u0003\u0004 a zip/docx'), 'CV_NOT_PDF'],
+    ['repeated field (array)', { ...body, name: ['a', 'b'] }, pdf(), 'NAME_REQUIRED'],
+    ['missing consent', { ...body, consent: undefined }, pdf(), 'CONSENT_REQUIRED'],
+    ['consent not "true"', { ...body, consent: 'on' }, pdf(), 'CONSENT_REQUIRED'],
+  ])('submit() rejects %s with 400 + code (AC-2; fe-public-pages AC-19, AC-20)', async (_case, input, file, code) => {
     const error = await service.submit(input, file).catch((e) => e);
 
     expect(error).toBeInstanceOf(BadRequestException);
-    expect(error.message).toBe(message);
+    expect(error.getResponse()).toEqual({ statusCode: 400, error: 'Bad Request', code, message: APPLICATION_MESSAGES[code] });
     expect(storage.upload).not.toHaveBeenCalled();
     expect(repo.create).not.toHaveBeenCalled();
   });
@@ -86,16 +88,22 @@ describe('ApplicationsService', () => {
   it('submit() rejects a position that is missing or not OPEN before uploading (AC-3)', async () => {
     repo.findOpenPosition.mockResolvedValue(null);
 
-    await expect(service.submit(body, pdf())).rejects.toThrow(APPLICATION_MESSAGES.POSITION_NOT_OPEN);
+    const error = await service.submit(body, pdf()).catch((e) => e);
+    expect(error.getResponse()).toMatchObject({ code: 'POSITION_NOT_OPEN', message: APPLICATION_MESSAGES.POSITION_NOT_OPEN });
     expect(storage.upload).not.toHaveBeenCalled();
   });
 
-  it('submit() returns 503 and saves nothing when the upload fails (AC-4)', async () => {
+  it('submit() returns 503 + code and saves nothing when the upload fails (AC-4; fe-public-pages AC-20)', async () => {
     storage.upload.mockRejectedValue(new Error('Google Drive upload failed: 500'));
 
     const error = await service.submit(body, pdf()).catch((e) => e);
     expect(error).toBeInstanceOf(ServiceUnavailableException);
-    expect(error.message).toBe(APPLICATION_MESSAGES.UPLOAD_FAILED);
+    expect(error.getResponse()).toEqual({
+      statusCode: 503,
+      error: 'Service Unavailable',
+      code: 'UPLOAD_FAILED',
+      message: APPLICATION_MESSAGES.UPLOAD_FAILED,
+    });
     expect(repo.create).not.toHaveBeenCalled();
     expect(logError).toHaveBeenCalledWith('CV upload failed for position frontend-dev', expect.any(String));
   });

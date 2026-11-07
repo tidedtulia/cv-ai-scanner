@@ -1,5 +1,7 @@
 # Feature: Submit CV Page
 
+> **Đã được thay thế một phần bởi [fe-public-pages](../fe-public-pages/requirements.md) (Phase 1.4):** dữ liệu và API thật, chỉ nhận PDF, hiện JD thay cho danh sách yêu cầu hardcode, checkbox đồng ý, giao diện song ngữ. Tài liệu dưới đây giữ nguyên để tham khảo phiên bản mock ban đầu.
+
 ## Mục tiêu
 
 Cho phép ứng viên nộp CV đến hệ thống thông qua một form đơn giản trên web. Ứng viên điền thông tin cá nhân, chọn vị trí ứng tuyển, xem yêu cầu của vị trí đó, upload file CV và submit.
