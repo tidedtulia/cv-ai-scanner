@@ -55,7 +55,7 @@ Khi ứng dụng OAuth còn ở chế độ **Testing**, refresh token **hết h
 Các giá trị **mới**, không dùng lại mật khẩu của môi trường dev. Lưu tất cả vào trình quản lý mật khẩu — `N8N_ENCRYPTION_KEY` **không bao giờ được đổi** (đổi là n8n mất toàn bộ credentials), `POSTGRES_ADMIN_PASSWORD` cần cho mọi lần khởi tạo/cập nhật.
 
 ```bash
-export POSTGRES_ADMIN_PASSWORD=$(openssl rand -hex 24)
+export POSTGRES_ADMIN_PASSWORD="Aa1-$(openssl rand -hex 16)"   # Azure đòi ≥ 3 trong 4 loại ký tự (hoa, thường, số, ký hiệu): hex thuần chỉ có 2 loại nên bị từ chối
 export JWT_SECRET=$(openssl rand -hex 32)
 export N8N_DB_PASSWORD=$(openssl rand -hex 24)
 export N8N_APP_DB_PASSWORD=$(openssl rand -hex 24)
@@ -71,6 +71,17 @@ read -rs -p "GOOGLE_CLIENT_SECRET: " GOOGLE_CLIENT_SECRET; export GOOGLE_CLIENT_
 read -rs -p "GOOGLE_REFRESH_TOKEN (mới, sau khi xuất bản): " GOOGLE_REFRESH_TOKEN; export GOOGLE_REFRESH_TOKEN; echo
 read -rs -p "SMTP_PASSWORD (Gmail App Password): " SMTP_PASSWORD; export SMTP_PASSWORD; echo
 ```
+
+**Cách B: dùng lại các giá trị trong `.env` của dev** (chạy ở máy có file `.env`, không in giá trị ra màn hình; không dùng được trong Cloud Shell vì `.env` không ở đó):
+
+```bash
+nvm use
+eval "$(node scripts/deploy/env-to-exports.mjs)"
+```
+
+Lệnh này nạp đủ 14 biến của khối trên từ `.env` (`POSTGRES_PASSWORD` thành `POSTGRES_ADMIN_PASSWORD`) và chỉ in **tên** biến đã nạp, tên biến thiếu và cảnh báo. Hai lưu ý:
+- **`POSTGRES_ADMIN_PASSWORD` phải đủ phức tạp.** Azure từ chối mật khẩu admin có dưới 3 loại ký tự; lệnh bỏ qua biến này nếu `.env` không đạt, khi đó tạo mới bằng dòng `export POSTGRES_ADMIN_PASSWORD=...` ở trên. (Mật khẩu 3 role còn lại do `init-db.sh` đặt nên không bị Azure kiểm tra độ phức tạp.)
+- Dùng lại giá trị dev nghĩa là **ai có file `.env` dev cũng có `JWT_SECRET` của bản chạy thật** (giả mạo được phiên HR) và các mật khẩu DB. Mật khẩu HR đầu tiên (`SEED_HR_PASSWORD`) cũng là mật khẩu dev: đổi ngay sau khi đăng nhập lần đầu (mục 5).
 
 Các biến này chỉ tồn tại trong cửa sổ terminal này; mở cửa sổ mới thì phải đặt lại (mật khẩu từ trình quản lý). **Đừng** ghi chúng vào file trong repo.
 
