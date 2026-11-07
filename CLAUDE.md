@@ -49,9 +49,23 @@ cd packages/backend && npx prisma db seed
 - Copy `.env.example` to **root** `.env`. It is read by `docker-compose.dev.yml`, the backend and the Prisma CLI (`packages/backend/prisma.config.ts` loads `packages/backend/.env` and the root `.env`).
 - If a local PostgreSQL already uses port 5432, set `POSTGRES_PORT` (and the port in `DATABASE_URL`) to e.g. 5433.
 - CV storage: `CV_STORAGE=local` (files in `tmp/cv-uploads`) for dev, `google-drive` for real — setup in `docs/features/submit-application-api/google-drive-setup.md`. The backend refuses to start without a valid `CV_STORAGE`.
+- Nx loads the root `.env` into every project, so `PORT=3001` (backend) also reaches Next.js — the frontend targets pin `--port 3000` for that reason.
+- Frontend: the browser calls `/api/*` on the Next.js origin, rewritten to `BACKEND_URL` (default `http://localhost:3001`, see `packages/frontend/next.config.js`). Public pages are bilingual: UI texts live in `packages/frontend/src/i18n/dictionaries/{en,vi}.ts` (same shape, checked by a test).
 - Prisma config lives in `packages/backend/prisma.config.ts`; migrations in `packages/backend/prisma/migrations/` are committed. Database design: `docs/database.md`.
 
 The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node.
+
+## Feature workflow (scenario-first)
+
+Every feature has its own branch (`feature/<name>`) and folder `docs/features/<name>/`. Example: `docs/features/fe-public-pages/`.
+
+1. **Analyse** — ask about anything unclear or undecided (with a recommended option), and record the answers in the feature's decision table and, for project-wide choices, in `docs/project-overview.md` (D…).
+2. **`requirements.md`** — once analysis is done, write the acceptance criteria as **scenarios**: `AC-n` IDs, in Given / When / Then form (Vietnamese text, Gherkin keywords; use a table for rule lists). Also include scope, decisions, and a **"Kiểm thử" table that maps each AC to its test file(s)**. Get the scenarios reviewed before coding.
+3. **`tasks.md`** — the checklist of implementation steps, test results and real runs (by AC ID).
+4. **Tests** — every scenario is covered, and every test title or scenario references its AC ID:
+   - Frontend: Gherkin `.feature` + `*.steps.spec.tsx` (jest-cucumber, Testing Library) next to the page or component under `__tests__/`, plus unit tests. Shared mocks and fixtures live in `packages/frontend/src/test-utils/`. Async Server Components are rendered with `renderPage()`.
+   - Backend: Jest unit tests (`*.spec.ts`). When a behaviour lives in Nest or multer config (limits, filters, pipes), use an HTTP spec with a real Nest app (`app.listen(0)` + `fetch`) and the services mocked.
+   - Only what needs a real environment (proxy, Google Drive) is verified by hand, and recorded in `tasks.md`.
 
 ## Architecture
 
@@ -63,7 +77,7 @@ The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cv-ai-scanner** (765 symbols, 1297 relationships, 28 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cv-ai-scanner** (1005 symbols, 1767 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

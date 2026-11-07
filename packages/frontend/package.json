@@ -6,7 +6,8 @@
     "@org/shared": "*",
     "next": "~16.1.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0"
   },
   "nx": {
     "targets": {
@@ -17,7 +18,17 @@
       },
       "dev": {
         "options": {
-          "command": "next dev --webpack"
+          "command": "next dev --webpack --port 3000"
+        }
+      },
+      "start": {
+        "options": {
+          "command": "next start --port 3000"
+        }
+      },
+      "serve-static": {
+        "options": {
+          "command": "next start --port 3000"
         }
       }
     }

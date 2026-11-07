@@ -37,7 +37,8 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md) · Thi�
   - AC-3: job không tồn tại / `CLOSED` → 400, không upload, không lưu
   - Chỉ đơn hợp lệ có file trên đĩa; `cv_drive_file_id` khớp file
   - AC-5: thiếu `CV_STORAGE` hoặc thiếu biến Google → backend dừng khi khởi động, nêu rõ biến thiếu
-- [ ] **Google Drive thật:** chạy khi có OAuth client — làm theo [google-drive-setup.md](./google-drive-setup.md), rồi nộp thử 1 CV
+- [x] **Google Drive thật** (2026-11-04, OAuth app đang ở *Testing*): CV 77 byte và CV 8MB (đi qua resumable upload) đều lên đúng `cv-ai-scanner/cv`, tên đúng mẫu, đúng kích thước; DB lưu ID + link Drive; dữ liệu test đã xoá
+- [ ] Publish OAuth app (*In production*) để refresh token không hết hạn sau 7 ngày — cần trang chủ + privacy policy công khai (làm khi deploy)
 
 ## Ghi nhận (ngoài phạm vi)
 

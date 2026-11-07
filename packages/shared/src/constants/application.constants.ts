@@ -10,9 +10,16 @@ export const APPLICATION_FORM_FIELDS = {
   /** Position `code`, e.g. frontend-dev */
   POSITION: 'position',
   CV: 'cv',
+  /** Privacy-policy consent checkbox; must equal APPLICATION_CONSENT_VALUE */
+  CONSENT: 'consent',
 } as const;
 
-/** Messages shared by the form (client validation) and the API (server validation) — keep FE & BE in sync */
+export const APPLICATION_CONSENT_VALUE = 'true';
+
+/**
+ * English messages shared by the form (client validation) and the API (server validation) — keep FE & BE in sync.
+ * API errors also return the key as `code`, so the bilingual form shows the message in the visitor's language.
+ */
 export const APPLICATION_MESSAGES = {
   SUBMITTED: 'Submit CV successfully',
   NAME_REQUIRED: 'Name is required',
@@ -25,4 +32,15 @@ export const APPLICATION_MESSAGES = {
   CV_NOT_PDF: 'Only PDF files are accepted',
   CV_TOO_LARGE: `File size must not exceed ${CV_MAX_FILE_SIZE_MB}MB`,
   UPLOAD_FAILED: 'Failed to upload CV. Please try again.',
+  CONSENT_REQUIRED: 'Please agree to the privacy policy to apply',
 } as const;
+
+export type ApplicationMessageCode = keyof typeof APPLICATION_MESSAGES;
+
+/** Body of an error response from POST /api/applications */
+export interface ApplicationErrorResponse {
+  statusCode: number;
+  error: string;
+  code: ApplicationMessageCode;
+  message: string;
+}

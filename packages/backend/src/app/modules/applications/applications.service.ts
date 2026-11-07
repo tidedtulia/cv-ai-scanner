@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { APPLICATION_MESSAGES, APPLICATION_TEXT_MAX_LENGTH, isValidEmail } from '@org/shared';
+import { BadRequestException, HttpStatus, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  APPLICATION_CONSENT_VALUE,
+  APPLICATION_MESSAGES,
+  APPLICATION_TEXT_MAX_LENGTH,
+  ApplicationErrorResponse,
+  ApplicationMessageCode,
+  isValidEmail,
+} from '@org/shared';
 import { ApplicationsRepository } from './applications.repository';
 import { buildCvFileName } from './cv-file-name';
 import { CvStorage, StoredCv } from './storage/cv-storage';
@@ -10,6 +17,7 @@ export interface SubmitApplicationBody {
   name?: unknown;
   email?: unknown;
   position?: unknown;
+  consent?: unknown;
 }
 
 /** The part of multer's file object (memory storage) this module uses. */
@@ -23,6 +31,14 @@ const PDF_MIME_TYPE = 'application/pdf';
 const PDF_SIGNATURE = '%PDF-';
 
 const asTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+
+/** Error body = Nest's usual shape + `code`, which the bilingual form translates. */
+export function applicationErrorBody(statusCode: number, error: string, code: ApplicationMessageCode): ApplicationErrorResponse {
+  return { statusCode, error, code, message: APPLICATION_MESSAGES[code] };
+}
+
+const badRequest = (code: ApplicationMessageCode) =>
+  new BadRequestException(applicationErrorBody(HttpStatus.BAD_REQUEST, 'Bad Request', code));
 
 /** Checks both the extension and the file content — a renamed .docx is not a PDF. */
 const isPdf = (file: UploadedCvFile) =>
@@ -44,7 +60,7 @@ export class ApplicationsService {
     // Before uploading, so a closed position never leaves a file behind in Drive
     const position = await this.applicationsRepo.findOpenPosition(positionCode);
     if (!position) {
-      throw new BadRequestException(APPLICATION_MESSAGES.POSITION_NOT_OPEN);
+      throw badRequest('POSITION_NOT_OPEN');
     }
 
     const applicationId = randomUUID();
@@ -57,7 +73,9 @@ export class ApplicationsService {
       });
     } catch (error) {
       this.logger.error(`CV upload failed for position ${position.code}`, error instanceof Error ? error.stack : error);
-      throw new ServiceUnavailableException(APPLICATION_MESSAGES.UPLOAD_FAILED);
+      throw new ServiceUnavailableException(
+        applicationErrorBody(HttpStatus.SERVICE_UNAVAILABLE, 'Service Unavailable', 'UPLOAD_FAILED'),
+      );
     }
 
     try {
@@ -81,23 +99,24 @@ export class ApplicationsService {
     return { message: APPLICATION_MESSAGES.SUBMITTED };
   }
 
-  /** Same rules and messages as the form's client-side validation (AC-2). */
+  /** Same rules, order and messages as the form's client-side validation (AC-2). */
   private validate(body: SubmitApplicationBody, cv?: UploadedCvFile) {
     const fullName = asTrimmedString(body.name);
-    if (!fullName) throw new BadRequestException(APPLICATION_MESSAGES.NAME_REQUIRED);
-    if (fullName.length > APPLICATION_TEXT_MAX_LENGTH) throw new BadRequestException(APPLICATION_MESSAGES.NAME_TOO_LONG);
+    if (!fullName) throw badRequest('NAME_REQUIRED');
+    if (fullName.length > APPLICATION_TEXT_MAX_LENGTH) throw badRequest('NAME_TOO_LONG');
 
     const email = asTrimmedString(body.email).toLowerCase();
-    if (!email) throw new BadRequestException(APPLICATION_MESSAGES.EMAIL_REQUIRED);
-    if (email.length > APPLICATION_TEXT_MAX_LENGTH || !isValidEmail(email)) {
-      throw new BadRequestException(APPLICATION_MESSAGES.EMAIL_INVALID);
-    }
+    if (!email) throw badRequest('EMAIL_REQUIRED');
+    if (email.length > APPLICATION_TEXT_MAX_LENGTH || !isValidEmail(email)) throw badRequest('EMAIL_INVALID');
 
     const positionCode = asTrimmedString(body.position);
-    if (!positionCode) throw new BadRequestException(APPLICATION_MESSAGES.POSITION_REQUIRED);
+    if (!positionCode) throw badRequest('POSITION_REQUIRED');
 
-    if (!cv) throw new BadRequestException(APPLICATION_MESSAGES.CV_REQUIRED);
-    if (!isPdf(cv)) throw new BadRequestException(APPLICATION_MESSAGES.CV_NOT_PDF);
+    if (!cv) throw badRequest('CV_REQUIRED');
+    if (!isPdf(cv)) throw badRequest('CV_NOT_PDF');
+
+    // Every stored application carries consent, so its time is the application's created_at (FQ2)
+    if (asTrimmedString(body.consent) !== APPLICATION_CONSENT_VALUE) throw badRequest('CONSENT_REQUIRED');
 
     return { fullName, email, positionCode, file: cv };
   }
