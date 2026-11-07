@@ -11,6 +11,8 @@ const MAIN = 'infra/azure/main.bicep';
 const PARAMS = 'infra/azure/main.example.bicepparam';
 const env = { ...process.env, PATH: `${process.env.PATH}:${process.env.HOME}/.azure/bin` };
 const az = (...argv) => spawnSync('az', argv, { cwd: root, encoding: 'utf8', env, maxBuffer: 64 * 1024 * 1024 });
+// the parameter file needs POSTGRES_ADMIN_PASSWORD (no default on purpose); any placeholder lets it compile
+const azParams = (...argv) => spawnSync('az', argv, { cwd: root, encoding: 'utf8', env: { ...env, POSTGRES_ADMIN_PASSWORD: 'Aa1-placeholder-for-bicep-check' }, maxBuffer: 64 * 1024 * 1024 });
 
 let fails = 0;
 const ok = (message) => console.log(`  ✓ ${message}`);
@@ -32,7 +34,7 @@ check(build.status === 0, 'az bicep build main.bicep', build.stderr.trim().split
 check(build.stderr.trim() === '', 'no warning while building', build.stderr.trim().split('\n')[0]);
 const lint = az('bicep', 'lint', '--file', MAIN);
 check(lint.status === 0 && `${lint.stdout}${lint.stderr}`.trim() === '', 'az bicep lint: no finding', `${lint.stdout}${lint.stderr}`.trim().split('\n')[0]);
-const params = az('bicep', 'build-params', '--file', PARAMS, '--stdout');
+const params = azParams('bicep', 'build-params', '--file', PARAMS, '--stdout');
 check(params.status === 0, 'az bicep build-params main.example.bicepparam', params.stderr.trim().split('\n')[0]);
 if (build.status !== 0) {
   console.log('\nCannot inspect a template that does not compile.');
