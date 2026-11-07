@@ -14,7 +14,7 @@ Dành cho người chưa từng dùng Azure. Mỗi bước là lệnh chép ch�
 | Ứng dụng Google OAuth đã **xuất bản (Production)** | bước 1.3 |
 | Gmail App Password | đã dùng khi dev (`SMTP_PASSWORD`) |
 
-Chi phí khoảng **35–55 USD/tháng** (xem [mục 8](#8-chi-phí-và-núm-vặn)); dừng được khi không dùng (mục 6.7).
+Chi phí khoảng **15–25 USD/tháng** trong 12 tháng ưu đãi PostgreSQL và **35–55 USD/tháng** sau đó, với thiết kế hiện tại (xem [mục 8](#8-chi-phí-và-núm-vặn), có phương án tối ưu hơn); dừng được khi không dùng (mục 6.7).
 
 ## 1. Chuẩn bị (làm một lần)
 
@@ -243,20 +243,41 @@ Lần deploy Bicep kế tiếp sẽ đặt lại `min-replicas`; muốn giữ tr
 
 ## 8. Chi phí và núm vặn
 
-Ước tính **tham khảo** cho vùng Southeast Asia, **chưa gồm thuế**, từ các bảng giá công bố bởi bên thứ ba và trang giá của Microsoft ([Container Apps](https://azure.microsoft.com/en-us/pricing/details/container-apps/), [Bytebase: B1ms](https://www.bytebase.com/dbcost/azure-flexible/instance/B1ms/)). Hãy kiểm tra lại bằng [Azure Pricing Calculator](https://azure.microsoft.com/pricing/calculator/) với đúng vùng và tiền tệ của bạn.
+Ước tính **tham khảo** cho vùng Southeast Asia, **chưa gồm thuế**, tính theo USD. Số liệu lấy từ các bảng giá công bố bởi bên thứ ba ([Container Apps](https://azure.microsoft.com/en-us/pricing/details/container-apps/), [Bytebase: B1ms](https://www.bytebase.com/dbcost/azure-flexible/instance/B1ms/)) cùng một số con số ước theo trí nhớ (giá ACR, ổ đĩa theo GB, Log Analytics, hạn mức miễn phí). **Chưa đo trên hóa đơn thật.** Hãy kiểm lại bằng [Azure Pricing Calculator](https://azure.microsoft.com/pricing/calculator/) với đúng vùng và tiền tệ, rồi đặt **Budget** có cảnh báo (Cost Management → Budgets) ngay sau khi triển khai.
 
-| Tài nguyên | Ước tính / tháng | Ghi chú |
-|------------|------------------|---------|
-| PostgreSQL Flexible Server B1ms + 32 GB | ~17–30 USD | lớn nhất; dừng được (6.7) |
-| n8n 0,5 vCPU / 1 GiB chạy 24/7 | ~10–15 USD | phần lớn thời gian ở mức *idle* (rẻ hơn); lịch 00:00 cần luôn bật |
-| frontend + backend (scale về 0) | ~0–3 USD | trong hạn mức miễn phí hằng tháng (180.000 vCPU-giây, 360.000 GiB-giây, 2 triệu request) khi ít người dùng |
-| Azure Container Registry Basic | ~5 USD | |
-| Log Analytics | ~0–3 USD | trần 0,5 GB/ngày (`logDailyCapGb`), lưu 30 ngày |
-| **Tổng** | **~35–55 USD** | |
+### 8.1 Hai cột thời gian
 
-**Ưu đãi miễn phí cho PostgreSQL (nếu đủ điều kiện).** Tài khoản Azure Free (tạo trong vòng 12 tháng, kể cả đã nâng cấp lên Pay-as-you-go) được 750 giờ/tháng PostgreSQL Flexible Server cỡ B1ms + 32 GB ổ đĩa trong 12 tháng đầu kể từ **ngày tạo tài khoản**; mặc định của Bicep (`Standard_B1ms`, 32 GB) khớp đúng mức này. Khi đó tổng giảm còn khoảng **15–25 USD/tháng**. Tài khoản đăng ký thẳng Pay-as-you-go **không có** ưu đãi này. Cách biết: Azure Portal → **Cost Management + Billing → Free services** (hiện dịch vụ nào còn miễn phí và còn bao nhiêu giờ), rồi theo dõi hóa đơn ở **Cost analysis** sau vài ngày đầu. Ưu đãi được áp dụng theo giờ sử dụng, Bicep không có ô "chọn ưu đãi". Credit 200 USD của Free Account chỉ có 30 ngày; sau đó phải nâng cấp lên Pay-as-you-go thì dịch vụ mới tiếp tục chạy.
+Tài khoản Azure Free (kể cả đã nâng lên Pay-as-you-go) được **750 giờ/tháng PostgreSQL Flexible Server B1ms + 32 GB ổ đĩa + 32 GB sao lưu miễn phí trong 12 tháng** kể từ ngày bắt đầu ưu đãi; mặc định Bicep (`Standard_B1ms`, 32 GB) khớp đúng. Xem ngày hết hạn và mức đã dùng ở **Cost Management + Billing → Free services**. Tài khoản đăng ký thẳng Pay-as-you-go không có ưu đãi này. Ưu đãi tính theo **giờ của một server B1ms**: đừng tạo thêm server PostgreSQL thứ hai. Credit 200 USD của Free Account chỉ có 30 ngày.
 
-Núm vặn (đều là tham số Bicep): `postgresSku` / `postgresStorageGb`, `frontendMinReplicas` / `backendMinReplicas` (0 = rẻ nhưng có cold start), `logRetentionDays` / `logDailyCapGb`, và dừng/ngủ đông (6.7). Đặt **Budget** có cảnh báo: Azure Portal → Cost Management → Budgets.
+### 8.2 So sánh các phương án
+
+Cột **A** là những gì Bicep hiện đang dựng. Cột **B** là phương án tối ưu **chưa triển khai** (cần đổi scenario, Bicep và runbook, xem 8.3).
+
+| Khoản | A: hiện tại | B: tối ưu | Ghi chú |
+|-------|-------------|-----------|---------|
+| PostgreSQL B1ms + 32 GB | 0 (trong ưu đãi) / 17–30 (sau đó) | như A | không có phương án rẻ hơn trong Azure |
+| n8n 0,5 vCPU / 1 GiB | 10–15 (chạy 24/7) | 0–2 (chỉ chạy khoảng 2 giờ mỗi đêm) | chi phí chính là **giữ container luôn bật**, đổi giờ chạy không giảm gì |
+| frontend + backend (scale về 0) | 0–3 | 0–3 | dùng chung hạn mức miễn phí hằng tháng với n8n |
+| Kho image | ~5 (ACR Basic) | 0 (`ghcr.io` public) | cần GitHub Actions để build; cold start chậm hơn vài chục giây |
+| Log Analytics | 0–3 (trần 0,5 GB/ngày; xấu nhất khoảng 25) | 0 (trần 0,1 GB/ngày ≤ 3 GB/tháng < 5 GB miễn phí) | chạm trần thì ngừng ghi log đến hết ngày |
+| **Tổng, trong 12 tháng ưu đãi PostgreSQL** | **~15–25** | **~0–5** | |
+| **Tổng, sau ưu đãi** | **~35–55** | **~17–35** | |
+
+Hạn mức miễn phí hằng tháng của Container Apps (180.000 vCPU-giây, 360.000 GiB-giây, 2 triệu request) dùng chung cho cả ba app. Phương án B giữ n8n trong khoảng 108.000 vCPU-giây và 216.000 GiB-giây mỗi tháng, nên chỉ còn lại khoảng 72.000 / 144.000 cho frontend và backend; nếu nhiều người dùng, phần vượt tính phí (khoảng vài USD).
+
+### 8.3 Cái giá của phương án B (đề xuất, chưa làm)
+
+| Thay đổi | Đổi lại |
+|----------|---------|
+| **n8n chạy theo khung giờ** (`minReplicas = 0`, rule cron ví dụ 23:50 → 02:00 giờ Việt Nam + rule HTTP để mở editor khi cần) | n8n phải khởi động lại mỗi đêm (60–90 giây, import credentials + workflow); lịch **bị bỏ lỡ** nếu n8n chưa lên lúc 00:00; đơn đang chấm bị ngắt nếu khung giờ kết thúc giữa chừng; editor chậm 1–2 phút khi mở lần đầu. Chưa kiểm chứng rule cron với `minReplicas = 0` trên Azure thật |
+| **Image lên `ghcr.io` (public)**, build bằng GitHub Actions, bỏ ACR + managed identity | gói mặc định là private, phải đổi sang public một lần; cold start chậm hơn vì kéo image từ GitHub; phụ thuộc thêm vào GitHub; image public nên tuyệt đối không có bí mật (repo đã public, nhưng workflow phải build từ bản checkout sạch) |
+| **Trần log 0,1 GB/ngày** | log lỗi có thể mất đúng lúc nhiều log nếu chạm trần; 5 GB miễn phí dùng chung cho cả tài khoản thanh toán |
+
+Phương án thay thế **không khuyên**: tắt hẳn Log Analytics (mất lịch sử log, mà backend ghi lỗi như email gửi thất bại ra log); Supabase thay Azure PostgreSQL (nhiều đánh đổi về kỹ thuật và bảo mật, gói Pro khoảng 25 USD).
+
+### 8.4 Núm vặn (tham số Bicep hiện có)
+
+`postgresSku` / `postgresStorageGb`, `frontendMinReplicas` / `backendMinReplicas` (0 = rẻ nhưng có cold start), `logRetentionDays` / `logDailyCapGb`, và dừng / ngủ đông (6.7). Cột A của 8.2 dùng các mặc định hiện tại; muốn gần cột B mà chưa đổi code, đặt `logDailyCapGb = '0.1'`.
 
 ## 9. Rủi ro đã biết
 
