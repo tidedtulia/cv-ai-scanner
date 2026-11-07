@@ -14,10 +14,11 @@ Bối cảnh: [project-overview.md §3, Phase 5, Q12](../../project-overview.md)
 - **Image (3 Dockerfile + `.dockerignore`):** `backend`, `frontend` (Next.js `standalone`), `n8n` (từ `n8nio/n8n:2.46.6`, đóng sẵn `n8n/setup` + `n8n/workflows`).
 - **n8n:** host / SSL của Postgres và các URL của n8n đọc từ biến môi trường (hiện đang gắn cứng `db` và `localhost`).
 - **Postgres do Azure quản lý:** `init-db.sh` chạy được với tài khoản admin **không phải superuser** và qua SSL; có script chạy migrate + seed.
-- **Hạ tầng (Bicep):** Log Analytics, Azure Container Registry, Container Apps Environment, PostgreSQL Flexible Server, 3 Container Apps, 1 Container Apps Job (migrate + seed), secrets.
+- **Hạ tầng (Bicep):** Log Analytics, Container Apps Environment, PostgreSQL Flexible Server, 3 Container Apps, 1 Container Apps Job (migrate + seed), secrets. **Không có Azure Container Registry**: image nằm trên `ghcr.io` (public) — phương án B, xem [runbook §8](./runbook.md#8-chi-phí-và-núm-vặn).
+- **GitHub Actions (chỉ build + đẩy image):** `.github/workflows/images.yml` build 3 image từ bản checkout sạch, quét, rồi đẩy lên `ghcr.io` bằng `GITHUB_TOKEN`.
 - **Kiểm tra trên máy:** `npm run docker:check` dựng 3 image, chạy cùng Postgres cục bộ và kiểm tra từng AC có thể kiểm tra được.
 - **Tài liệu:** [runbook.md](./runbook.md) (từng bước, chi phí, cập nhật, quay lui, xoá), cập nhật `CLAUDE.md` và `project-overview.md`; thay `docker-compose.prod.yml` đang lỗi thời.
-- **Không làm:** CI/CD (GitHub Actions), tên miền riêng và chứng chỉ (dùng `*.azurecontainerapps.io`), Key Vault (dùng secrets của Container Apps, runbook ghi cách chuyển sau), VNet / private endpoint cho Postgres, nhiều replica cho backend, đổi nhà cung cấp email (vẫn Gmail), sao lưu ngoài cơ chế sẵn có của Flexible Server.
+- **Không làm:** tự động **triển khai** lên Azure (workflow chỉ build và đẩy image; bạn vẫn chạy Bicep), tên miền riêng và chứng chỉ (dùng `*.azurecontainerapps.io`), Key Vault (dùng secrets của Container Apps, runbook ghi cách chuyển sau), VNet / private endpoint cho Postgres, nhiều replica cho backend, đổi nhà cung cấp email (vẫn Gmail), sao lưu ngoài cơ chế sẵn có của Flexible Server.
 
 ### Kiến trúc đích
 
@@ -115,20 +116,20 @@ migrate Job (image backend): prisma migrate deploy + seed HR đầu tiên
 
 | Tài nguyên | Cấu hình mặc định |
 |------------|-------------------|
-| Log Analytics workspace | lưu 30 ngày, trần 0,5 GB mỗi ngày |
-| Azure Container Registry | SKU Basic, không bật tài khoản admin; Container Apps kéo image bằng managed identity (`AcrPull`) |
+| Log Analytics workspace | lưu 30 ngày, trần **0,1 GB mỗi ngày** (≤ 3 GB/tháng, dưới 5 GB miễn phí) |
+| Image | `ghcr.io/<chủ>/cv-backend`, `cv-frontend`, `cv-n8n` (tham số `imageRegistry`), **public nên các app kéo không cần thông tin đăng nhập**; **không** có ACR, managed identity hay `registries` |
 | Container Apps Environment | gắn Log Analytics |
 | PostgreSQL Flexible Server 17 | Burstable `Standard_B1ms`, 32 GB, sao lưu 7 ngày, bắt buộc TLS, database ứng dụng; tường lửa chỉ "Azure services" + IP của bạn khi có tham số |
 | `frontend` | ingress **ngoài** (https), cổng 3000, min 0 / max 2 replica, 0,25 vCPU / 0,5 GiB, probe `GET /` |
 | `backend` | ingress **nội bộ**, cổng 3001, min 0 / **max 1** replica (bộ đếm đăng nhập sai nằm trong bộ nhớ), 0,25 vCPU / 0,5 GiB, probe liveness `/api/health`, readiness `/api/health/ready` |
-| `n8n` | min **1** / max 1 replica (scale về 0 thì lịch 00:00 không chạy), 0,5 vCPU / 1 GiB, probe `/healthz/readiness`; ingress ngoài **chỉ cho các IP/CIDR trong `n8nAllowedCidr`** (rỗng → tắt ingress, n8n chỉ chạy lịch) |
+| `n8n` | max 1 replica, 0,5 vCPU / 1 GiB, probe `/healthz/readiness`; ingress ngoài **chỉ cho các IP/CIDR trong `n8nAllowedCidr`** (rỗng → tắt ingress, n8n chỉ chạy lịch). **Số replica theo `n8nAlwaysOn`**: `false` (mặc định) = min **0** với rule **cron** chỉ bật n8n từ `n8nWindowStart` (23:50) đến `n8nWindowEnd` (02:00) giờ Việt Nam, cộng rule **HTTP** để mở editor khi cần (chỉ khi có ingress); `true` = min **1** như thiết kế cũ (dự phòng nếu lịch 00:00 bị bỏ lỡ) |
 | Job `migrate` | image backend, chạy tay (`az containerapp job start`) |
 
 - Tham số có đặt tên rõ, kèm file mẫu `main.example.bicepparam` **không chứa bí mật**; bí mật truyền qua tham số `@secure()` lúc triển khai, lưu thành **secrets của Container Apps** và nạp vào biến môi trường bằng `secretRef`.
 - `BACKEND_URL` của frontend (build và chạy) là địa chỉ nội bộ của backend; `N8N_*` URL lấy từ FQDN thực của n8n; `NODE_ENV=production`.
 - Mặc định vùng `southeastasia`; mọi kích thước, vùng, số replica là tham số.
-- `az bicep build` và `az bicep lint` không có lỗi hay cảnh báo; đầu ra (`outputs`) gồm URL frontend, URL n8n, tên ACR, tên Postgres, tên job migrate.
-- **Hai pha trong cùng một file:** `deployApps=false` (mặc định) chỉ dựng hạ tầng; build image bằng `az acr build`, khởi tạo DB, rồi `deployApps=true` + `imageTag` để tạo 3 app và job (thay cho image giữ chỗ). `deployApps` và `imageTag` đọc từ biến môi trường `DEPLOY_APPS` / `IMAGE_TAG` vì không trộn được file `.bicepparam` với tham số dòng lệnh.
+- `az bicep build` và `az bicep lint` không có lỗi hay cảnh báo; đầu ra (`outputs`) gồm URL frontend, URL n8n, địa chỉ image, tên Postgres, tên job migrate.
+- **Hai pha trong cùng một file:** `deployApps=false` (mặc định) chỉ dựng hạ tầng; build image bằng workflow GitHub Actions, khởi tạo DB, rồi `deployApps=true` + `imageTag` để tạo 3 app và job (thay cho image giữ chỗ). `deployApps` và `imageTag` đọc từ biến môi trường `DEPLOY_APPS` / `IMAGE_TAG` vì không trộn được file `.bicepparam` với tham số dòng lệnh.
 
 #### AC-8: Bảo mật cấu hình
 
@@ -138,6 +139,26 @@ migrate Job (image backend): prisma migrate deploy + seed HR đầu tiên
 - Chỉ frontend (https) và n8n (giới hạn IP) có địa chỉ công khai; Postgres bắt buộc TLS.
 - `trust proxy` của backend đã nhận dải mạng riêng (envoy → frontend → backend), giữ nguyên hành vi đã được [hr-auth](../hr-auth/requirements.md) kiểm thử; giới hạn đã biết (qua Next mọi người có thể trông như cùng một IP) ghi trong runbook.
 - `SMTP_*` / `MAIL_FROM` bắt buộc trong runbook; **không** đặt `MAIL_REDIRECT_TO` trên môi trường thật (runbook nêu rõ, Bicep không có tham số này).
+
+#### AC-12: Workflow build và đẩy image
+
+**Given:** repo `tidedtulia/cv-ai-scanner` trên GitHub
+**When:** chạy tay workflow **Build images** (nhập `tag`) hoặc push tag `v*`
+**Then:**
+- Từ **bản checkout sạch** (không file cục bộ nào), dựng 3 image bằng đúng 3 Dockerfile; frontend nhận build arg `BACKEND_URL=http://<namePrefix>-backend` (`namePrefix` lấy từ biến repo `NAME_PREFIX`, mặc định `cvs`).
+- **Quét từng image trước khi đẩy**: không có file `.env*` (ngoài `node_modules`), không có chuỗi giống khoá bí mật (`sk-ant-`, khối `PRIVATE KEY`); phát hiện thì workflow **dừng, không đẩy gì**.
+- Đẩy lên `ghcr.io/<chủ repo, viết thường>/cv-backend | cv-frontend | cv-n8n` với tag đã chọn, dùng `GITHUB_TOKEN` (quyền `packages: write`), **không dùng token cá nhân**; chỉ cần quyền tối thiểu (`contents: read`).
+- Runbook nêu việc làm một lần: đổi từng gói sang **Public** và liên kết với repo; cách kiểm tra bằng `docker pull` không đăng nhập.
+
+#### AC-13: n8n chạy theo khung giờ
+
+**Given:** `n8nAlwaysOn = false` (mặc định)
+**Then:**
+- n8n được bật từ `n8nWindowStart` (mặc định `50 23 * * *`) đến `n8nWindowEnd` (mặc định `0 2 * * *`), múi giờ `Asia/Ho_Chi_Minh`; ngoài khung giờ không có replica nào (không tốn tiền chạy).
+- Khung giờ phải đủ rộng để n8n khởi động (60–90 giây) **trước 00:00** và chấm hết đơn của đêm đó; thời gian chờ tắt (`terminationGracePeriodSeconds`) đặt 600 giây để đơn đang chấm không bị ngắt đột ngột.
+- Có ingress (`n8nAllowedCidr` không rỗng): thêm rule HTTP, mở editor ngoài khung giờ đánh thức n8n (chậm 1–2 phút lần đầu); không có ingress: chỉ có rule cron.
+- `n8nAlwaysOn = true`: min = max = 1, không có rule nào (dự phòng nếu lịch bị bỏ lỡ).
+- Runbook ghi: cách đổi khung giờ, cách xem n8n có chạy lúc 00:00 không (log + lịch sử thực thi), và rủi ro đã biết.
 
 ### Kiểm tra trên máy
 
@@ -158,7 +179,7 @@ migrate Job (image backend): prisma migrate deploy + seed HR đầu tiên
 
 **Then:** [runbook.md](./runbook.md) cho người chưa từng dùng Azure, mỗi bước là lệnh chép chạy được (biến ở đầu file), theo thứ tự:
 1. Điều kiện: tài khoản Azure + `az login`, đăng ký provider, **xuất bản ứng dụng Google OAuth lên Production** (nếu không thì refresh token hết hạn sau 7 ngày), tạo các bí mật (`openssl rand`), Gmail App Password.
-2. Dựng hạ tầng (Bicep) → build image (`az acr build`) → cập nhật app.
+2. Dựng hạ tầng (Bicep) → build image (GitHub Actions → `ghcr.io`, đổi các gói sang public một lần) → cập nhật app.
 3. Khởi tạo DB: `init-db.sh` (qua `docker run postgres:17-alpine` với tường lửa mở tạm cho IP của bạn), rồi Job `migrate`.
 4. Kiểm tra: URL frontend, `/api/health/ready`, đăng nhập HR, nộp CV thử, n8n (IP được phép, WF-1 đang active, thử chạy tay), email thử qua `mail:check`.
 5. Vận hành: cập nhật phiên bản, xem log, **quay lui**, thay bí mật, đổi `n8nAllowedCidr`, sao lưu / khôi phục DB, **dừng để tiết kiệm** và xoá toàn bộ.
@@ -177,8 +198,9 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): backend có Jest; ph�
 | AC-4 | thêm `n8n/setup/credentials.test.cjs` (host / cổng / SSL từ biến môi trường, mặc định giữ nguyên) chạy trong `npm run wf1:test` |
 | AC-5 | `docker-check.mjs` (tạo admin `NOSUPERUSER CREATEROLE CREATEDB`, chạy `init-db.sh` hai lần, kiểm quyền) + `npm run n8n:check` (đường superuser) |
 | AC-6 | `docker-check.mjs` (migrate + seed hai lần trên DB trống) · backend `prisma/seed` (nếu tách hàm thì có test) |
-| AC-7 | `az bicep build` + `az bicep lint` không lỗi; kiểm tra tĩnh bằng script (`scripts/deploy/bicep-check.mjs`: không có giá trị bí mật trong file, backend ingress nội bộ, n8n min 1, backend max 1, probe đúng đường dẫn) · **triển khai thật: bạn chạy theo runbook, ghi vào tasks.md** |
+| AC-7, AC-13 | `az bicep build` + `az bicep lint` không lỗi; kiểm tra tĩnh bằng script (`scripts/deploy/bicep-check.mjs`: không ACR / identity / `registries`, image từ `imageRegistry`, trần log 0,1 GB, không có giá trị bí mật trong file, backend ingress nội bộ, backend max 1, n8n max 1 và min theo `n8nAlwaysOn` với rule cron đúng giờ / múi giờ, probe đúng đường dẫn) · **triển khai thật: bạn chạy theo runbook, ghi vào tasks.md** |
 | AC-8 | `docker-check.mjs` (không có `.env` trong image; không bí mật ngẫu nhiên nào của lần chạy xuất hiện trong log 4 container; cookie `Secure`) + `bicep-check.mjs` · `trust proxy`: test hr-auth hiện có |
+| AC-12 | `scripts/deploy/scan-image.sh` chạy thật trên image vừa dựng (và thử với một image cố tình chứa `.env`) · kiểm cú pháp workflow · **chạy workflow trên GitHub: bạn làm, ghi vào tasks.md** |
 | AC-9, AC-10 | chạy `npm run docker:check`; file `docker-compose.prod.yml` đã xoá |
 | AC-11 | rà soát bằng mắt + chạy thử từng lệnh có thể chạy cục bộ (`az bicep build`, `docker build`) |
 
@@ -193,9 +215,10 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): backend có Jest; ph�
 | AQ3 | Tên miền | `*.azurecontainerapps.io` trước, gắn domain riêng sau |
 | AQ4 | Email thật | Giữ **Gmail** lúc đầu (đổi dịch vụ có SPF / DKIM khi có domain) |
 | — | Secrets | Secrets của Container Apps (tham số `@secure()`), chưa dùng Key Vault; runbook ghi cách chuyển |
-| — | Registry | ACR Basic, kéo bằng managed identity, build bằng `az acr build` (không cần Docker cục bộ để đẩy image) |
+| — | Registry (đổi 2026-11-07, phương án B) | **`ghcr.io` public** (repo đã public), build bằng GitHub Actions; bỏ ACR Basic (~5 USD/tháng) và managed identity |
 | — | Mạng DB | Truy cập công khai + TLS + tường lửa "Azure services" (không VNet) cho MVP |
-| — | Số replica | frontend 0–2, **backend 0–1**, **n8n 1–1**; scale về 0 gây cold start vài giây cho người dùng đầu tiên, đổi bằng tham số |
+| — | Số replica | frontend 0–2, **backend 0–1**, **n8n theo khung giờ** (min 0, bật 23:50–02:00, `n8nAlwaysOn=true` để quay lại min 1); scale về 0 gây cold start cho người dùng đầu tiên, đổi bằng tham số |
+| — | Log | trần **0,1 GB/ngày** (dưới hạn mức 5 GB miễn phí); đánh đổi: chạm trần thì ngừng ghi log tới hết ngày |
 | — | n8n | Editor ngoài internet nhưng **giới hạn theo IP** (`n8nAllowedCidr`); rỗng thì tắt ingress |
 | — | Vùng | `southeastasia` (gần Việt Nam) |
 
@@ -207,4 +230,5 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): backend có Jest; ph�
 - **Backend bundle bằng webpack nhưng để dependency ngoài (`externalDependencies`)**: image cần `node_modules` production (`npm ci --omit=dev` theo lockfile đã prune) và Prisma Client đã generate.
 - **Google OAuth ở chế độ Testing:** refresh token hết hạn sau 7 ngày — bắt buộc xuất bản ứng dụng (chuyển sang Production) trước khi chạy thật (runbook bước 1). Đây là việc ngoài code.
 - **Giới hạn đã biết:** bộ đếm đăng nhập sai nằm trong bộ nhớ của một instance (nên backend `max 1`); mọi người dùng ra qua cùng IP của envoy / Next nên bộ đếm theo IP thực chất là theo email + một IP chung — đã ghi ở phase hr-auth, chưa đổi ở đây.
-- **Chi phí ước tính (chưa tính thuế, tham khảo):** Postgres B1ms + 32 GB khoảng 15–25 USD/tháng; n8n chạy 24/7 (0,5 vCPU / 1 GiB) khoảng 15–20 USD; frontend / backend scale về 0 gần như chỉ tính khi có người dùng; ACR Basic khoảng 5 USD; Log Analytics có trần ngày. Tổng khoảng 35–55 USD/tháng (15–25 trong 12 tháng ưu đãi PostgreSQL); các phương án giảm thêm (n8n theo khung giờ, `ghcr.io`, trần log 0,1 GB/ngày) nằm trong [runbook §8](./runbook.md#8-chi-phí-và-núm-vặn), chưa triển khai.
+- **Chi phí (phương án B, ước tính):** xem [runbook §8](./runbook.md#8-chi-phí-và-núm-vặn). Đoạn dưới là ước tính ban đầu cho thiết kế cũ (n8n 24/7, ACR):
+- **Chi phí ước tính ban đầu (chưa tính thuế, tham khảo):** Postgres B1ms + 32 GB khoảng 15–25 USD/tháng; n8n chạy 24/7 (0,5 vCPU / 1 GiB) khoảng 15–20 USD; frontend / backend scale về 0 gần như chỉ tính khi có người dùng; ACR Basic khoảng 5 USD; Log Analytics có trần ngày. Tổng khoảng 35–55 USD/tháng (15–25 trong 12 tháng ưu đãi PostgreSQL); các phương án giảm thêm (n8n theo khung giờ, `ghcr.io`, trần log 0,1 GB/ngày) nằm trong [runbook §8](./runbook.md#8-chi-phí-và-núm-vặn), chưa triển khai.

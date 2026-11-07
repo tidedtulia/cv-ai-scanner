@@ -51,18 +51,20 @@ const paramFile = readFileSync(join(root, PARAMS), 'utf8');
 
 section('AC-7 — resources and defaults');
 const types = new Set(resources.map((r) => r.type));
-for (const type of ['Microsoft.OperationalInsights/workspaces', 'Microsoft.ContainerRegistry/registries', 'Microsoft.App/managedEnvironments', 'Microsoft.DBforPostgreSQL/flexibleServers', 'Microsoft.App/jobs', 'Microsoft.Authorization/roleAssignments']) {
+for (const type of ['Microsoft.OperationalInsights/workspaces', 'Microsoft.App/managedEnvironments', 'Microsoft.DBforPostgreSQL/flexibleServers', 'Microsoft.App/jobs']) {
   check(types.has(type), `declares ${type}`);
+}
+for (const type of ['Microsoft.ContainerRegistry/registries', 'Microsoft.ManagedIdentity/userAssignedIdentities', 'Microsoft.Authorization/roleAssignments']) {
+  check(!types.has(type), `does NOT declare ${type} (public images on ghcr.io: no registry, no identity, no pull role)`);
 }
 check(byType('Microsoft.App/containerApps').length === 3, 'three container apps (frontend, backend, n8n)');
 check(arm.parameters.location.defaultValue === 'southeastasia', 'default region is southeastasia');
-const registry = byType('Microsoft.ContainerRegistry/registries')[0];
-check(registry.sku.name === 'Basic' && registry.properties.adminUserEnabled === false, 'ACR is Basic with the admin account disabled (images are pulled with a managed identity)');
+check(arm.parameters.imageRegistry.defaultValue.startsWith('ghcr.io/') && arm.parameters.imageRegistry.defaultValue === arm.parameters.imageRegistry.defaultValue.toLowerCase(), 'images come from ghcr.io, owner in lowercase (imageRegistry)');
 const pg = byType('Microsoft.DBforPostgreSQL/flexibleServers')[0];
 check(pg.properties.version === '17' && pg.sku.tier === 'Burstable' && pg.properties.storage.storageSizeGB !== undefined, 'PostgreSQL 17, Burstable');
 check(arm.parameters.postgresSku.defaultValue === 'Standard_B1ms' && arm.parameters.postgresStorageGb.defaultValue === 32 && arm.parameters.postgresBackupDays.defaultValue === 7, 'default Standard_B1ms, 32 GB, 7 days of backups');
 const logs = byType('Microsoft.OperationalInsights/workspaces')[0];
-check(arm.parameters.logRetentionDays.defaultValue === 30 && /0\.5/.test(String(arm.parameters.logDailyCapGb.defaultValue)) && logs.properties.workspaceCapping, 'logs: 30 days, 0.5 GB per day cap');
+check(arm.parameters.logRetentionDays.defaultValue === 30 && String(arm.parameters.logDailyCapGb.defaultValue) === '0.1' && logs.properties.workspaceCapping, 'logs: 30 days, 0.1 GB per day cap (3 GB a month, under the 5 GB that is free)');
 check(arm.parameters.deployApps.defaultValue === false, 'deployApps defaults to false (phase 1 = infrastructure only)');
 
 const backend = app('backend');
@@ -75,7 +77,14 @@ check(frontend.properties.configuration.ingress.external === true && frontend.pr
 check(String(n8n.properties.configuration.ingress).includes('empty(parameters(') && /n8nAllowedCidr/.test(String(n8n.properties.configuration.ingress)), 'n8n has no ingress at all when n8nAllowedCidr is empty');
 check(String(n8n.properties.configuration.ingress).includes('ipSecurityRestrictions') && JSON.stringify(arm.variables).includes('"action":"Allow"'), 'n8n ingress allows only the listed CIDR blocks (action Allow, nothing else)');
 check(backend.properties.template.scale.maxReplicas === 1, 'backend max replicas = 1 (in-memory failed-login counter)');
-check(n8n.properties.template.scale.minReplicas === 1 && n8n.properties.template.scale.maxReplicas === 1, 'n8n min = max = 1 (the 00:00 schedule)');
+const n8nScale = n8n.properties.template.scale;
+check(n8nScale.maxReplicas === 1, 'n8n max replicas = 1');
+check(arm.parameters.n8nAlwaysOn.defaultValue === false && n8nScale.minReplicas === "[if(parameters('n8nAlwaysOn'), 1, 0)]", 'n8n: min replicas is 0 by default (windowed) and 1 when n8nAlwaysOn = true');
+const cron = JSON.stringify(arm.variables.n8nCronRule);
+check(/"type":"cron"/.test(cron) && /Asia\/Ho_Chi_Minh/.test(JSON.stringify(arm.variables.tz)) && /n8nWindowStart/.test(cron) && /n8nWindowEnd/.test(cron) && /"desiredReplicas":"1"/.test(cron), 'n8n cron rule: starts at n8nWindowStart, ends at n8nWindowEnd, 1 replica, Vietnam time');
+check(arm.parameters.n8nWindowStart.defaultValue === '50 23 * * *' && arm.parameters.n8nWindowEnd.defaultValue === '0 2 * * *', 'default window 23:50 → 02:00 (boots before the 00:00 schedule)');
+check(n8nScale.rules === "[if(parameters('n8nAlwaysOn'), createArray(), variables('n8nScaleRules'))]" && /empty\(parameters\('n8nAllowedCidr'\)\), createArray\(variables\('n8nCronRule'\)\), createArray\(variables\('n8nCronRule'\), createObject\('name', 'editor', 'http'/.test(arm.variables.n8nScaleRules), 'n8n rules: none when always on; cron only without ingress; cron + HTTP "editor" with an ingress');
+check(n8n.properties.template.terminationGracePeriodSeconds === 600, 'n8n gets 600 s to finish an evaluation before it is stopped');
 check(frontend.properties.template.scale.maxReplicas !== undefined && arm.parameters.frontendMinReplicas.defaultValue === 0 && arm.parameters.frontendMaxReplicas.defaultValue === 2, 'frontend scales 0 → 2');
 check(arm.parameters.backendMinReplicas.defaultValue === 0, 'backend may scale to 0');
 check(container(backend).resources.cpu !== undefined && container(n8n).resources.memory === '1Gi', 'n8n gets 1 GiB');

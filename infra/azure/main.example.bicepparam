@@ -8,6 +8,15 @@ param namePrefix = 'cvs'
 param deployApps = readEnvironmentVariable('DEPLOY_APPS', 'false') == 'true'
 param imageTag = readEnvironmentVariable('IMAGE_TAG', 'latest')
 
+// where the public images are (the GitHub account that runs .github/workflows/images.yml, in lowercase)
+param imageRegistry = 'ghcr.io/tidedtulia'
+
+// n8n only runs from 23:50 to 02:00 Vietnam time (about 2 hours a day): saves ~10-15 USD a month.
+// Set true to keep it always on (fallback if the 00:00 schedule is ever missed).
+param n8nAlwaysOn = false
+param n8nWindowStart = '50 23 * * *'
+param n8nWindowEnd = '0 2 * * *'
+
 param adminIp = '' // your public IP, to run init-db.sh from your machine
 param n8nAllowedCidr = [] // e.g. ['203.0.113.7/32']; empty = no n8n editor
 

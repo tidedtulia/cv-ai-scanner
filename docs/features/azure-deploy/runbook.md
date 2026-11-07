@@ -1,6 +1,6 @@
 # Runbook: triển khai CV AI Scanner lên Azure
 
-Dành cho người chưa từng dùng Azure. Mỗi bước là lệnh chép chạy được trong **terminal bash/zsh**, tại **thư mục gốc của repo**. Yêu cầu: [requirements.md](./requirements.md) (AC-7, AC-11). Kiến trúc: frontend (công khai) → backend (nội bộ) → PostgreSQL; n8n (giới hạn IP) → PostgreSQL.
+Dành cho người chưa từng dùng Azure. Mỗi bước là lệnh chép chạy được trong **terminal bash/zsh**, tại **thư mục gốc của repo**. Yêu cầu: [requirements.md](./requirements.md) (AC-7, AC-11 → AC-13). Kiến trúc: frontend (công khai) → backend (nội bộ) → PostgreSQL; n8n (giới hạn IP, **chỉ chạy theo khung giờ**) → PostgreSQL. Image nằm trên **`ghcr.io` (public)**, build bằng GitHub Actions.
 
 > **Trạng thái:** các file Docker và Bicep đã được kiểm tra trên máy (`npm run docker:check`, `npm run bicep:check`). **Chưa từng triển khai thật lên Azure** — lần đầu có thể gặp lỗi riêng của tài khoản/subscription; xem mục [Sự cố thường gặp](#7-sự-cố-thường-gặp) và ghi kết quả vào [tasks.md](./tasks.md).
 
@@ -10,11 +10,12 @@ Dành cho người chưa từng dùng Azure. Mỗi bước là lệnh chép ch�
 |-----|---------|
 | Tài khoản Azure có **subscription** còn hạn mức | https://portal.azure.com |
 | Azure CLI (`az`), Docker Desktop đang chạy, `openssl` | `az --version`, `docker version` |
-| Quyền **Owner** hoặc **Contributor + User Access Administrator** trên resource group (Bicep tạo role `AcrPull`) | Subscription → Access control (IAM) |
+| Quyền **Contributor** trên resource group (không còn role assignment: image public, không có ACR) | Subscription → Access control (IAM) |
+| Quyền chạy **GitHub Actions** và đổi gói sang Public trên repo `tidedtulia/cv-ai-scanner` | GitHub → Actions đã bật |
 | Ứng dụng Google OAuth đã **xuất bản (Production)** | bước 1.3 |
 | Gmail App Password | đã dùng khi dev (`SMTP_PASSWORD`) |
 
-Chi phí khoảng **15–25 USD/tháng** trong 12 tháng ưu đãi PostgreSQL và **35–55 USD/tháng** sau đó, với thiết kế hiện tại (xem [mục 8](#8-chi-phí-và-núm-vặn), có phương án tối ưu hơn); dừng được khi không dùng (mục 6.7).
+Chi phí khoảng **0–5 USD/tháng** trong 12 tháng ưu đãi PostgreSQL và **17–35 USD/tháng** sau đó (xem [mục 8](#8-chi-phí-và-núm-vặn); ước tính chưa đo); dừng được khi không dùng (mục 6.7).
 
 ## 1. Chuẩn bị (làm một lần)
 
@@ -27,7 +28,7 @@ az account set --subscription "<tên hoặc id subscription>"
 az bicep install
 
 # đăng ký các dịch vụ sẽ dùng (chỉ cần lần đầu của subscription)
-for p in Microsoft.App Microsoft.ContainerRegistry Microsoft.DBforPostgreSQL Microsoft.OperationalInsights Microsoft.ManagedIdentity; do az provider register --namespace $p; done
+for p in Microsoft.App Microsoft.DBforPostgreSQL Microsoft.OperationalInsights; do az provider register --namespace $p; done
 az provider show -n Microsoft.App --query registrationState -o tsv   # đợi tới khi là Registered
 ```
 
@@ -94,32 +95,34 @@ Mất khoảng 5–10 phút (PostgreSQL lâu nhất). Lấy tên tài nguyên:
 
 ```bash
 out() { az deployment group show -g $RG -n main --query "properties.outputs.$1.value" -o tsv; }
-export ACR=$(out registryName) PGHOST=$(out postgresHost) ACR_SERVER=$(out registryLoginServer) DBNAME=$(out appDatabaseName)
-echo "$ACR  $PGHOST  $DBNAME"
+export IMAGE_REGISTRY=$(out imageRegistry) PGHOST=$(out postgresHost) DBNAME=$(out appDatabaseName)
+echo "$IMAGE_REGISTRY  $PGHOST  $DBNAME"
 ```
 
 ## 3. Build image, khởi tạo database
 
-### 3.1 Build 3 image trong ACR
+### 3.1 Build 3 image bằng GitHub Actions (đẩy lên `ghcr.io`, public)
+
+1. Nếu `namePrefix` **không** phải `cvs`: GitHub → repo → Settings → Secrets and variables → Actions → **Variables** → thêm `NAME_PREFIX` = giá trị đó (frontend bị nướng địa chỉ `http://<PREFIX>-backend` lúc build).
+2. GitHub → **Actions → Build images → Run workflow** → nhập `tag` (ví dụ `20261107.1`, chữ / số / `. _ -`). Hoặc push tag `v*`. Workflow dựng 3 image từ bản checkout sạch, **quét** (không có `.env`, không có chuỗi giống khoá bí mật; có là dừng, không đẩy gì), rồi đẩy bằng `GITHUB_TOKEN`.
+3. **Chỉ lần đầu:** gói mới tạo mặc định là *private*. Vào GitHub → ảnh đại diện → **Your profile → Packages**; với **từng** gói `cv-backend`, `cv-frontend`, `cv-n8n`: **Package settings → Change visibility → Public** (và *Connect repository* nếu được hỏi).
+4. Kiểm tra kéo được **không cần đăng nhập** (cửa sổ khác, chưa `docker login`):
 
 ```bash
-export TAG=$(date +%Y%m%d.%H%M)
-az acr build -r $ACR -t backend:$TAG  -f packages/backend/Dockerfile .
-az acr build -r $ACR -t frontend:$TAG -f packages/frontend/Dockerfile --build-arg BACKEND_URL=http://$PREFIX-backend .
-az acr build -r $ACR -t n8n:$TAG      -f n8n/Dockerfile .
+export TAG=20261107.1                              # đúng tag đã nhập ở bước 2
+docker pull $IMAGE_REGISTRY/cv-backend:$TAG && docker pull $IMAGE_REGISTRY/cv-frontend:$TAG && docker pull $IMAGE_REGISTRY/cv-n8n:$TAG
 ```
 
-`BACKEND_URL` của frontend **bị nướng lúc build**: phải là `http://<PREFIX>-backend` (địa chỉ nội bộ). Nếu đổi `namePrefix`, build lại frontend.
+Báo `denied` / `unauthorized` nghĩa là gói còn private (bước 3).
 
 ### 3.2 Migrate + seed (từ máy bạn, dùng đúng image vừa build)
 
 Cần `docker` cục bộ và địa chỉ IP của bạn đã nằm trong `adminIp`.
 
 ```bash
-az acr login -n $ACR
 export DATABASE_URL="postgresql://cvsadmin:${POSTGRES_ADMIN_PASSWORD}@${PGHOST}:5432/${DBNAME}?sslmode=require"
 docker run --rm -e DATABASE_URL -e SEED_SAMPLE_DATA=false -e SEED_HR_EMAIL="<email HR đầu tiên>" -e SEED_HR_PASSWORD \
-  $ACR_SERVER/backend:$TAG sh packages/backend/scripts/migrate-and-seed.sh
+  $IMAGE_REGISTRY/cv-backend:$TAG sh packages/backend/scripts/migrate-and-seed.sh
 ```
 
 Thành công khi thấy `Seed done — categories: 7, levels: 7, positions: 0, … users: 1`. Chạy lại được, không tạo trùng.
@@ -167,13 +170,10 @@ Rồi làm bằng tay:
 ### 6.1 Cập nhật phiên bản mới
 
 ```bash
-export TAG=$(date +%Y%m%d.%H%M)
-az acr build -r $ACR -t backend:$TAG  -f packages/backend/Dockerfile .
-az acr build -r $ACR -t frontend:$TAG -f packages/frontend/Dockerfile --build-arg BACKEND_URL=http://$PREFIX-backend .
-az acr build -r $ACR -t n8n:$TAG      -f n8n/Dockerfile .
-# có migration mới? áp dụng TRƯỚC khi chuyển app sang bản mới (lệnh của bước 3.2, với image mới; cần `adminIp`):
-az acr login -n $ACR
-docker run --rm -e DATABASE_URL -e SEED_SAMPLE_DATA=false $ACR_SERVER/backend:$TAG sh packages/backend/scripts/migrate-and-seed.sh
+# 1) GitHub → Actions → Build images → Run workflow, tag mới (mục 3.1); gói đã Public từ lần đầu
+export TAG=<tag vừa build>
+# 2) có migration mới? áp dụng TRƯỚC khi chuyển app sang bản mới (lệnh của bước 3.2, với image mới; cần `adminIp`):
+docker run --rm -e DATABASE_URL -e SEED_SAMPLE_DATA=false $IMAGE_REGISTRY/cv-backend:$TAG sh packages/backend/scripts/migrate-and-seed.sh
 # rồi chuyển app sang bản mới
 export DEPLOY_APPS=true IMAGE_TAG=$TAG
 az deployment group create -g $RG -f infra/azure/main.bicep -p infra/azure/main.bicepparam
@@ -212,25 +212,34 @@ Rồi chuyển `DATABASE_URL` / `DB_POSTGRESDB_HOST` sang server mới (tạo l�
 ### 6.7 Dừng để tiết kiệm, và xoá
 
 ```bash
-# ngủ đông: n8n về 0 (lịch 00:00 KHÔNG chạy), PostgreSQL dừng (tự bật lại sau 7 ngày).
+# ngủ đông: dừng PostgreSQL (tự bật lại sau 7 ngày). Trang web và lịch chấm CV sẽ KHÔNG chạy trong lúc dừng.
 # Lưu ý: dừng chỉ ngừng tiền máy (compute); tiền ổ đĩa và backup vẫn tính. Muốn hết hẳn thì xoá (phía dưới)
-az containerapp update -g $RG -n $PREFIX-n8n --min-replicas 0
 az postgres flexible-server stop -g $RG -n <tên server>
 # bật lại
 az postgres flexible-server start -g $RG -n <tên server>
-az containerapp update -g $RG -n $PREFIX-n8n --min-replicas 1
 
-# xoá TOÀN BỘ (không hoàn tác, mất dữ liệu): 
+# xoá TOÀN BỘ (không hoàn tác, mất dữ liệu):
 az group delete -n $RG --yes --no-wait
 ```
 
-Lần deploy Bicep kế tiếp sẽ đặt lại `min-replicas`; muốn giữ trạng thái ngủ đông thì đừng chạy lại cho tới khi bật.
+n8n đã tự về 0 ngoài khung giờ (6.8) nên không cần làm gì thêm cho n8n; nếu bạn đặt `n8nAlwaysOn = true` thì chạy thêm `az containerapp update -g $RG -n $PREFIX-n8n --min-replicas 0` khi ngủ đông và `--min-replicas 1` khi bật lại (lần deploy Bicep kế tiếp sẽ đặt lại giá trị theo tham số).
+
+### 6.8 n8n theo khung giờ
+
+Mặc định n8n **không chạy cả ngày**: chỉ có replica từ `n8nWindowStart` (23:50) đến `n8nWindowEnd` (02:00) giờ Việt Nam, để tiết kiệm khoảng 10–15 USD/tháng. n8n cần 60–90 giây để khởi động (import credentials + workflow) nên phải lên **trước** 00:00; lịch 00:00 chỉ chạy khi n8n đang chạy.
+
+- **Đổi khung giờ:** sửa `n8nWindowStart` / `n8nWindowEnd` trong `main.bicepparam` (cú pháp cron 5 trường, giờ Việt Nam) rồi chạy lại mục 4. Khung giờ phải đủ rộng để chấm hết đơn của đêm đó; dừng giữa chừng sẽ ngắt đơn đang chấm (đơn kẹt ở *EVALUATING* và được xử lý ở lần sau, xem n8n-workflows.md). Container được chờ 600 giây trước khi bị dừng.
+- **Luôn bật** (nếu từng bỏ lỡ lịch): `n8nAlwaysOn = true` rồi chạy lại mục 4. Tốn thêm khoảng 10–15 USD/tháng.
+- **Mở editor ngoài khung giờ:** vào `$N8N_URL` (IP phải nằm trong `n8nAllowedCidr`); rule HTTP đánh thức n8n, chờ 1–2 phút ở lần đầu, rồi tự tắt sau vài phút không dùng. Không có `n8nAllowedCidr` thì không có ingress và không mở editor được ngoài khung giờ.
+- **Kiểm tra lịch 00:00 có chạy:** sáng hôm sau xem đơn mới ở `/hr` (đã có điểm) hoặc `az containerapp logs show -g $RG -n $PREFIX-n8n --tail 200`, và *Executions* trong n8n. Chưa kiểm chứng trên Azure thật rằng rule cron kết hợp `minReplicas = 0` hoạt động như mong đợi: **sau lần triển khai đầu, hãy theo dõi vài đêm liền**.
 
 ## 7. Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân / cách xử lý |
 |-------------|--------------------------|
-| `az acr build` báo *TasksOperationsNotAllowed* | Subscription (free/trial) chặn ACR Tasks: build trên máy rồi đẩy: `az acr login -n $ACR; docker build -f packages/backend/Dockerfile -t $ACR_SERVER/backend:$TAG .; docker push $ACR_SERVER/backend:$TAG` (tương tự frontend với `--build-arg BACKEND_URL=...`, và n8n) |
+| `docker pull` hoặc app báo `denied` / `unauthorized` / `manifest unknown` khi kéo image | Gói trên `ghcr.io` còn *private* hoặc sai tag: đổi sang **Public** (bước 3.1), kiểm tra `IMAGE_TAG` và `imageRegistry` (chữ thường) |
+| Workflow *Build images* dừng ở bước Scan | Image có `.env` hoặc chuỗi giống khoá bí mật — **không** đẩy. Xem tên file trong log, loại ra khỏi image (`.dockerignore` / Dockerfile) rồi chạy lại |
+| Sáng ra đơn chưa được chấm, n8n không có log đêm qua | n8n chưa lên kịp lúc 00:00 hoặc rule cron không hoạt động: dịch `n8nWindowStart` sớm hơn, hoặc `n8nAlwaysOn = true` (mục 6.8) |
 | Bước 3.3 báo thiếu quyền / `must be able to SET ROLE` | Admin của Azure thiếu `CREATEROLE`: kiểm tra `az postgres flexible-server show`; script đã `GRANT n8n TO <admin> WITH SET TRUE, INHERIT TRUE`; gửi nguyên văn lỗi để xử lý |
 | `psql: could not connect` / timeout | IP chưa nằm trong `adminIp` (IP đổi theo nhà mạng) → cập nhật và deploy lại |
 | n8n không sẵn sàng, log nêu `self-signed certificate` / `unable to verify` | Đặt `verifyDatabaseCertificate = false` (chỉ khi bắt buộc), deploy lại |
@@ -249,41 +258,44 @@ Lần deploy Bicep kế tiếp sẽ đặt lại `min-replicas`; muốn giữ tr
 
 Tài khoản Azure Free (kể cả đã nâng lên Pay-as-you-go) được **750 giờ/tháng PostgreSQL Flexible Server B1ms + 32 GB ổ đĩa + 32 GB sao lưu miễn phí trong 12 tháng** kể từ ngày bắt đầu ưu đãi; mặc định Bicep (`Standard_B1ms`, 32 GB) khớp đúng. Xem ngày hết hạn và mức đã dùng ở **Cost Management + Billing → Free services**. Tài khoản đăng ký thẳng Pay-as-you-go không có ưu đãi này. Ưu đãi tính theo **giờ của một server B1ms**: đừng tạo thêm server PostgreSQL thứ hai. Credit 200 USD của Free Account chỉ có 30 ngày.
 
-### 8.2 So sánh các phương án
+### 8.2 Thiết kế hiện tại và thiết kế ban đầu
 
-Cột **A** là những gì Bicep hiện đang dựng. Cột **B** là phương án tối ưu **chưa triển khai** (cần đổi scenario, Bicep và runbook, xem 8.3).
+Cột **B** là **thiết kế hiện tại** của Bicep (n8n theo khung giờ, image `ghcr.io`, trần log 0,1 GB/ngày). Cột A là thiết kế ban đầu, chỉ để so sánh (muốn quay lại: `n8nAlwaysOn = true`, `logDailyCapGb = '0.5'`, và dựng lại ACR, không còn trong Bicep).
 
-| Khoản | A: hiện tại | B: tối ưu | Ghi chú |
-|-------|-------------|-----------|---------|
+| Khoản | A: ban đầu | B: hiện tại | Ghi chú |
+|-------|------------|-------------|---------|
 | PostgreSQL B1ms + 32 GB | 0 (trong ưu đãi) / 17–30 (sau đó) | như A | không có phương án rẻ hơn trong Azure |
-| n8n 0,5 vCPU / 1 GiB | 10–15 (chạy 24/7) | 0–2 (chỉ chạy khoảng 2 giờ mỗi đêm) | chi phí chính là **giữ container luôn bật**, đổi giờ chạy không giảm gì |
+| n8n 0,5 vCPU / 1 GiB | 10–15 (24/7) | 0–2 (khoảng 2 giờ mỗi đêm) | chi phí chính là **giữ container luôn bật** |
 | frontend + backend (scale về 0) | 0–3 | 0–3 | dùng chung hạn mức miễn phí hằng tháng với n8n |
-| Kho image | ~5 (ACR Basic) | 0 (`ghcr.io` public) | cần GitHub Actions để build; cold start chậm hơn vài chục giây |
-| Log Analytics | 0–3 (trần 0,5 GB/ngày; xấu nhất khoảng 25) | 0 (trần 0,1 GB/ngày ≤ 3 GB/tháng < 5 GB miễn phí) | chạm trần thì ngừng ghi log đến hết ngày |
+| Kho image | ~5 (ACR Basic) | 0 (`ghcr.io` public) | cold start chậm hơn vài chục giây |
+| Log Analytics | 0–3 (xấu nhất khoảng 25) | 0 (trần 0,1 GB/ngày ≤ 3 GB/tháng < 5 GB miễn phí) | chạm trần thì ngừng ghi log đến hết ngày |
 | **Tổng, trong 12 tháng ưu đãi PostgreSQL** | **~15–25** | **~0–5** | |
 | **Tổng, sau ưu đãi** | **~35–55** | **~17–35** | |
 
-Hạn mức miễn phí hằng tháng của Container Apps (180.000 vCPU-giây, 360.000 GiB-giây, 2 triệu request) dùng chung cho cả ba app. Phương án B giữ n8n trong khoảng 108.000 vCPU-giây và 216.000 GiB-giây mỗi tháng, nên chỉ còn lại khoảng 72.000 / 144.000 cho frontend và backend; nếu nhiều người dùng, phần vượt tính phí (khoảng vài USD).
+Hạn mức miễn phí hằng tháng của Container Apps (180.000 vCPU-giây, 360.000 GiB-giây, 2 triệu request) dùng chung cho cả ba app. n8n theo khung giờ dùng khoảng 108.000 vCPU-giây và 216.000 GiB-giây mỗi tháng, nên chỉ còn lại khoảng 72.000 / 144.000 cho frontend và backend; nếu nhiều người dùng, phần vượt tính phí (khoảng vài USD).
 
-### 8.3 Cái giá của phương án B (đề xuất, chưa làm)
+### 8.3 Cái giá của thiết kế hiện tại
 
 | Thay đổi | Đổi lại |
 |----------|---------|
-| **n8n chạy theo khung giờ** (`minReplicas = 0`, rule cron ví dụ 23:50 → 02:00 giờ Việt Nam + rule HTTP để mở editor khi cần) | n8n phải khởi động lại mỗi đêm (60–90 giây, import credentials + workflow); lịch **bị bỏ lỡ** nếu n8n chưa lên lúc 00:00; đơn đang chấm bị ngắt nếu khung giờ kết thúc giữa chừng; editor chậm 1–2 phút khi mở lần đầu. Chưa kiểm chứng rule cron với `minReplicas = 0` trên Azure thật |
-| **Image lên `ghcr.io` (public)**, build bằng GitHub Actions, bỏ ACR + managed identity | gói mặc định là private, phải đổi sang public một lần; cold start chậm hơn vì kéo image từ GitHub; phụ thuộc thêm vào GitHub; image public nên tuyệt đối không có bí mật (repo đã public, nhưng workflow phải build từ bản checkout sạch) |
+| **n8n chạy theo khung giờ** (`n8nAlwaysOn = false`) | n8n khởi động lại mỗi đêm (60–90 giây, import credentials + workflow); lịch **bị bỏ lỡ** nếu n8n chưa lên lúc 00:00; đơn đang chấm bị ngắt nếu khung giờ kết thúc giữa chừng; editor chậm 1–2 phút lần đầu. **Chưa kiểm chứng** rule cron với `minReplicas = 0` trên Azure thật |
+| **Image `ghcr.io` public** | gói mặc định là private, phải đổi sang public một lần; cold start chậm hơn vì kéo image từ GitHub; phụ thuộc thêm vào GitHub; image public nên không được có bí mật (workflow build từ bản checkout sạch và quét trước khi đẩy) |
 | **Trần log 0,1 GB/ngày** | log lỗi có thể mất đúng lúc nhiều log nếu chạm trần; 5 GB miễn phí dùng chung cho cả tài khoản thanh toán |
 
 Phương án thay thế **không khuyên**: tắt hẳn Log Analytics (mất lịch sử log, mà backend ghi lỗi như email gửi thất bại ra log); Supabase thay Azure PostgreSQL (nhiều đánh đổi về kỹ thuật và bảo mật, gói Pro khoảng 25 USD).
 
 ### 8.4 Núm vặn (tham số Bicep hiện có)
 
-`postgresSku` / `postgresStorageGb`, `frontendMinReplicas` / `backendMinReplicas` (0 = rẻ nhưng có cold start), `logRetentionDays` / `logDailyCapGb`, và dừng / ngủ đông (6.7). Cột A của 8.2 dùng các mặc định hiện tại; muốn gần cột B mà chưa đổi code, đặt `logDailyCapGb = '0.1'`.
+`postgresSku` / `postgresStorageGb`, `frontendMinReplicas` / `backendMinReplicas` (0 = rẻ nhưng có cold start), `n8nAlwaysOn` / `n8nWindowStart` / `n8nWindowEnd` (6.8), `logRetentionDays` / `logDailyCapGb`, và dừng / ngủ đông (6.7).
 
 ## 9. Rủi ro đã biết
 
-- **Cold start** khi frontend/backend về 0 replica: người dùng đầu tiên chờ vài giây.
+- **Cold start** khi frontend/backend về 0 replica: người dùng đầu tiên chờ, lâu hơn khi image phải kéo từ `ghcr.io` (vài chục giây, chưa đo).
+- **n8n chỉ chạy theo khung giờ**: lịch 00:00 bị bỏ lỡ nếu n8n chưa lên hoặc rule cron không hoạt động như mong đợi (chưa kiểm chứng); theo dõi vài đêm đầu (6.8), có `n8nAlwaysOn = true` để quay lại.
+- **Phụ thuộc GitHub**: image public trên `ghcr.io`; nếu `ghcr.io` gián đoạn thì không dựng được replica mới.
+- **Trần log 0,1 GB/ngày**: chạm trần thì ngừng ghi log đến hết ngày, có thể mất log đúng lúc có lỗi.
 - **Gmail** cá nhân: có thể vào thư rác của ứng viên; giới hạn ~500 email/ngày. Cách khắc phục khi có tên miền: dịch vụ gửi mail có SPF/DKIM (ví dụ Azure Communication Services Email) — chỉ cần đổi biến `SMTP_*`.
 - **Bộ đếm đăng nhập sai** nằm trong bộ nhớ một instance nên backend để `max 1`; qua Next.js + envoy mọi người dùng có thể trông như cùng một IP nên giới hạn thực chất theo email.
 - **PostgreSQL truy cập công khai** (TLS + tường lửa "Azure services"): mọi dịch vụ Azure có thể *thử* kết nối nhưng cần mật khẩu. Muốn chặt hơn: VNet integration + private endpoint (ngoài phạm vi MVP).
 - **Secrets** nằm trong Container Apps secrets (mã hoá khi lưu) chứ chưa dùng Key Vault; chuyển sang Key Vault bằng managed identity + `secretRef` kiểu `keyVaultUrl` khi cần chính sách xoay vòng.
-- **Chưa có CI/CD**: cập nhật bằng tay theo 6.1.
+- **Chưa có tự động triển khai**: GitHub Actions chỉ build + đẩy image; cập nhật app bằng tay theo 6.1.

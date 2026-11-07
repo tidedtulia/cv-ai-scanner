@@ -1,7 +1,8 @@
 // CV AI Scanner on Azure Container Apps + PostgreSQL Flexible Server (docs/features/azure-deploy, AC-7).
 // Two phases, same file:
-//   1) deployApps = false  → registry, logs, environment, identity, database server (no secrets besides the DB admin password)
-//   2) build the images with `az acr build`, then deployApps = true (+ imageTag) → the 3 apps and the migrate job
+//   1) deployApps = false  → logs, environment, database server (no secrets besides the DB admin password)
+//   2) build the images (GitHub Actions → ghcr.io, public), then deployApps = true (+ imageTag) → the 3 apps and the migrate job
+// The images are public on ghcr.io, so no registry resource and no pull credentials exist here.
 // Secrets come in as @secure() parameters (main.example.bicepparam reads them from environment variables) and are stored as
 // Container Apps secrets; nothing secret is written in this file. Runbook: docs/features/azure-deploy/runbook.md
 
@@ -16,17 +17,20 @@ param location string = 'southeastasia'
 @description('Prefix of every resource name; also the names of the container apps (<prefix>-frontend, <prefix>-backend, <prefix>-n8n).')
 param namePrefix string = 'cvs'
 
-@description('false = infrastructure only; true = also the 3 apps and the migrate job (the images must exist in the registry).')
+@description('false = infrastructure only; true = also the 3 apps and the migrate job (the images must exist on ghcr.io and be public).')
 param deployApps bool = false
 
-@description('Tag of the 3 images in the registry (backend, frontend, n8n), e.g. 2026-11-07.1.')
+@description('Tag of the 3 images (cv-backend, cv-frontend, cv-n8n), e.g. 20261107.1.')
 param imageTag string = 'latest'
+
+@description('Where the PUBLIC images are: <registry>/<owner in lowercase>, e.g. ghcr.io/tidedtulia (set by .github/workflows/images.yml).')
+param imageRegistry string = 'ghcr.io/tidedtulia'
 
 // ---------------------------------------------------------------- sizing (all tunable)
 param logRetentionDays int = 30
 
-@description('Daily cap of ingested logs (GB), keeps the log bill bounded.')
-param logDailyCapGb string = '0.5'
+@description('Daily cap of ingested logs (GB): 0.1 GB x 30 days = 3 GB, under the 5 GB a month that is free. At the cap, logging stops until the next day.')
+param logDailyCapGb string = '0.1'
 
 param postgresSku string = 'Standard_B1ms'
 param postgresStorageGb int = 32
@@ -49,6 +53,13 @@ param n8nAllowedCidr array = []
 
 @description('false only as a fallback when n8n cannot verify the PostgreSQL certificate.')
 param verifyDatabaseCertificate bool = true
+
+@description('false = n8n only runs inside the window below (min 0 replicas + cron rule): about 2 hours a day instead of 24. true = always 1 replica (fallback if the 00:00 schedule is ever missed).')
+param n8nAlwaysOn bool = false
+@description('KEDA cron: when n8n is started. It needs 60-90 s to boot, so it must be well before the 00:00 schedule.')
+param n8nWindowStart string = '50 23 * * *'
+@description('KEDA cron: when n8n may stop. Must be late enough for the nightly evaluations to finish.')
+param n8nWindowEnd string = '0 2 * * *'
 
 // ---------------------------------------------------------------- application settings (not secret)
 param postgresAdminLogin string = 'cvsadmin'
@@ -100,16 +111,14 @@ param seedHrPassword string = ''
 
 // ---------------------------------------------------------------- names
 var unique = uniqueString(resourceGroup().id)
-var registryName = '${namePrefix}acr${unique}'
 var postgresName = '${namePrefix}-pg-${unique}'
 var frontendName = '${namePrefix}-frontend'
 var backendName = '${namePrefix}-backend'
 var n8nName = '${namePrefix}-n8n'
 var migrateJobName = '${namePrefix}-migrate'
-var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 var tz = 'Asia/Ho_Chi_Minh'
 
-// ---------------------------------------------------------------- logs, registry, identity, environment
+// ---------------------------------------------------------------- logs, environment
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${namePrefix}-logs'
   location: location
@@ -117,28 +126,6 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
     sku: { name: 'PerGB2018' }
     retentionInDays: logRetentionDays
     workspaceCapping: { dailyQuotaGb: json(logDailyCapGb) }
-  }
-}
-
-resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
-  name: registryName
-  location: location
-  sku: { name: 'Basic' }
-  properties: { adminUserEnabled: false }
-}
-
-resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${namePrefix}-identity'
-  location: location
-}
-
-resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.id, identity.id, acrPullRoleId)
-  scope: registry
-  properties: {
-    principalId: identity.properties.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
   }
 }
 
@@ -194,17 +181,28 @@ resource allowAdmin 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@202
 }
 
 // ---------------------------------------------------------------- shared values of the apps
-var registryServer = registry.properties.loginServer
 var databaseUrl = 'postgresql://${postgresAdminLogin}:${uriComponent(postgresAdminPassword)}@${postgres.properties.fullyQualifiedDomainName}:5432/${appDatabaseName}?sslmode=require'
-var registries = [{ server: registryServer, identity: identity.id }]
-var appIdentity = {
-  type: 'UserAssigned'
-  userAssignedIdentities: { '${identity.id}': {} }
-}
 // Container Apps in one environment reach each other by app name; internal ingress listens on 80 → target port
 var backendInternalUrl = 'http://${backendName}'
 var n8nFqdn = '${n8nName}.${environment.properties.defaultDomain}'
 var n8nUrl = 'https://${n8nFqdn}'
+var backendImage = '${imageRegistry}/cv-backend:${imageTag}'
+var frontendImage = '${imageRegistry}/cv-frontend:${imageTag}'
+var n8nImage = '${imageRegistry}/cv-n8n:${imageTag}'
+var n8nCronRule = {
+  name: 'night-window'
+  custom: {
+    type: 'cron'
+    metadata: {
+      timezone: tz
+      start: n8nWindowStart
+      end: n8nWindowEnd
+      desiredReplicas: '1'
+    }
+  }
+}
+// an HTTP rule wakes n8n when somebody opens the editor; it only makes sense when there is an ingress
+var n8nScaleRules = empty(n8nAllowedCidr) ? [n8nCronRule] : [n8nCronRule, { name: 'editor', http: { metadata: { concurrentRequests: '10' } } }]
 var n8nIpRestrictions = [for (cidr, i) in n8nAllowedCidr: {
   name: 'allow-${i}'
   action: 'Allow'
@@ -215,13 +213,11 @@ var n8nIpRestrictions = [for (cidr, i) in n8nAllowedCidr: {
 resource backend 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   name: backendName
   location: location
-  identity: appIdentity
-  dependsOn: [acrPull, appDatabase, allowAzure]
+  dependsOn: [appDatabase, allowAzure]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
       activeRevisionsMode: 'Single'
-      registries: registries
       ingress: {
         external: false
         targetPort: 3001
@@ -241,7 +237,7 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
       containers: [
         {
           name: 'backend'
-          image: '${registryServer}/backend:${imageTag}'
+          image: backendImage
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: [
             { name: 'NODE_ENV', value: 'production' }
@@ -277,26 +273,24 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
 resource frontend 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   name: frontendName
   location: location
-  identity: appIdentity
-  dependsOn: [acrPull, backend]
+  dependsOn: [backend]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
       activeRevisionsMode: 'Single'
-      registries: registries
       ingress: { external: true, targetPort: 3000, transport: 'auto', allowInsecure: false }
     }
     template: {
       containers: [
         {
           name: 'frontend'
-          image: '${registryServer}/frontend:${imageTag}'
+          image: frontendImage
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: [
             { name: 'NODE_ENV', value: 'production' }
             { name: 'PORT', value: '3000' }
             { name: 'HOSTNAME', value: '0.0.0.0' }
-            // the same value the image was built with (az acr build --build-arg BACKEND_URL=...)
+            // the same value the image was built with (the images workflow passes it as the BACKEND_URL build argument)
             { name: 'BACKEND_URL', value: backendInternalUrl }
             { name: 'NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL', value: privacyContactEmail }
           ]
@@ -320,13 +314,11 @@ resource frontend 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
 resource n8n 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   name: n8nName
   location: location
-  identity: appIdentity
-  dependsOn: [acrPull, appDatabase, allowAzure]
+  dependsOn: [appDatabase, allowAzure]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
       activeRevisionsMode: 'Single'
-      registries: registries
       // No allowed address → no ingress at all: n8n still runs its schedule, nobody can open the editor
       ingress: empty(n8nAllowedCidr) ? null : {
         external: true
@@ -349,10 +341,12 @@ resource n8n 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
       ]
     }
     template: {
+      // a stopping replica gets time to finish the evaluation it is running
+      terminationGracePeriodSeconds: 600
       containers: [
         {
           name: 'n8n'
-          image: '${registryServer}/n8n:${imageTag}'
+          image: n8nImage
           resources: { cpu: json('0.5'), memory: '1Gi' }
           env: [
             // n8n's own data → database n8n (role n8n), created by init-db.sh
@@ -398,8 +392,12 @@ resource n8n 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
           ]
         }
       ]
-      // min 1: scaled to zero, the 00:00 schedule would not run
-      scale: { minReplicas: 1, maxReplicas: 1 }
+      // Always on: 1 replica. Windowed: 0 outside the cron window (the 00:00 schedule only runs while n8n is up, hence the early start)
+      scale: {
+        minReplicas: n8nAlwaysOn ? 1 : 0
+        maxReplicas: 1
+        rules: n8nAlwaysOn ? [] : n8nScaleRules
+      }
     }
   }
 }
@@ -408,8 +406,7 @@ resource n8n 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
 resource migrateJob 'Microsoft.App/jobs@2024-03-01' = if (deployApps) {
   name: migrateJobName
   location: location
-  identity: appIdentity
-  dependsOn: [acrPull, appDatabase, allowAzure]
+  dependsOn: [appDatabase, allowAzure]
   properties: {
     environmentId: environment.id
     configuration: {
@@ -417,7 +414,6 @@ resource migrateJob 'Microsoft.App/jobs@2024-03-01' = if (deployApps) {
       replicaTimeout: 600
       replicaRetryLimit: 0
       manualTriggerConfig: { parallelism: 1, replicaCompletionCount: 1 }
-      registries: registries
       secrets: [
         { name: 'database-url', value: databaseUrl }
         { name: 'seed-hr-password', value: seedHrPassword }
@@ -427,7 +423,7 @@ resource migrateJob 'Microsoft.App/jobs@2024-03-01' = if (deployApps) {
       containers: [
         {
           name: 'migrate'
-          image: '${registryServer}/backend:${imageTag}'
+          image: backendImage
           command: ['sh']
           args: ['packages/backend/scripts/migrate-and-seed.sh']
           resources: { cpu: json('0.5'), memory: '1Gi' }
@@ -448,8 +444,7 @@ resource migrateJob 'Microsoft.App/jobs@2024-03-01' = if (deployApps) {
 output frontendUrl string = deployApps ? 'https://${frontendName}.${environment.properties.defaultDomain}' : ''
 output n8nUrl string = (deployApps && !empty(n8nAllowedCidr)) ? n8nUrl : ''
 output backendInternalUrl string = backendInternalUrl
-output registryName string = registry.name
-output registryLoginServer string = registryServer
+output imageRegistry string = imageRegistry
 output postgresName string = postgres.name
 output postgresHost string = postgres.properties.fullyQualifiedDomainName
 output appDatabaseName string = appDatabaseName
