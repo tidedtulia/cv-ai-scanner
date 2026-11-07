@@ -1,0 +1,94 @@
+{
+  "id": "cvScannerMcpServer",
+  "name": "MCP — CV Scanner",
+  "description": "Read-only MCP server for Claude (WF-1): one tool, get_position_requirements. Endpoint /mcp/cv-scanner, Bearer auth (credential cvScannerMcpToken).",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "6f1d0c2a-0000-4000-8000-000000000011",
+      "name": "MCP Server Trigger",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "cv-scanner-mcp",
+      "parameters": {
+        "authentication": "bearerAuth",
+        "path": "cv-scanner"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "cvScannerMcpToken",
+          "name": "CV Scanner MCP token"
+        }
+      }
+    },
+    {
+      "id": "6f1d0c2a-0000-4000-8000-000000000012",
+      "name": "get_position_requirements",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "description": "Get everything needed to score a CV against ONE job position: the job description (JD, markdown), category, required level, minimum years of experience, the scoring criteria (id, name, type, scoring guidance, weight 1-5, is_required) in display order, and the list of selectable levels (code, name) for estimating the candidate's level. Call it once with the position_id (UUID) you were given. Read-only; returns an error if the position does not exist.",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "cvScannerToolPositionRequirements",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "position_id": "={{ $fromAI('position_id', 'UUID of the job position', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "position_id",
+              "displayName": "position_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    }
+  ],
+  "connections": {
+    "get_position_requirements": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

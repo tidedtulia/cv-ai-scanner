@@ -19,4 +19,6 @@ export interface StoredCv {
 export abstract class CvStorage {
   abstract upload(file: CvUpload): Promise<StoredCv>;
   abstract remove(fileId: string): Promise<void>;
+  /** Content of a stored CV; null when the file no longer exists (HR view, hr-applications AC-5) */
+  abstract download(fileId: string): Promise<Buffer | null>;
 }

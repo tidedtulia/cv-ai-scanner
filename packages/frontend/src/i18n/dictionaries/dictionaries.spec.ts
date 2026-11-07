@@ -1,4 +1,4 @@
-import { APPLICATION_MESSAGES } from '@org/shared';
+import { APPLICATION_MESSAGES, HR_POSITION_MESSAGES } from '@org/shared';
 import { en } from './en';
 import { vi } from './vi';
 
@@ -47,5 +47,10 @@ describe('dictionaries (AC-13, AC-15)', () => {
   it('translates every API error code; English reuses the shared messages', () => {
     expect(Object.keys(vi.applicationMessages).sort()).toEqual(Object.keys(APPLICATION_MESSAGES).sort());
     expect(en.applicationMessages).toEqual(APPLICATION_MESSAGES);
+  });
+
+  it('translates every code of the HR positions / catalog API (hr-positions AC-18); English reuses the shared messages', () => {
+    expect(Object.keys(vi.hrPositions.errors).sort()).toEqual(Object.keys(HR_POSITION_MESSAGES).sort());
+    expect(en.hrPositions.errors).toEqual(HR_POSITION_MESSAGES);
   });
 });

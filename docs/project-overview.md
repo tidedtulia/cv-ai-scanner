@@ -76,7 +76,7 @@ Giai đoạn đầu chạy bằng Docker local, sau đó triển khai lên Azure
 
 | Thành phần | Giai đoạn 1 — Docker local | Giai đoạn 2 — Azure *(đề xuất, chốt ở Phase 5 — Q12)* |
 |------------|----------------------------|--------------------------------------------------------|
-| PostgreSQL | Container `postgres:16` (đã có trong `docker-compose.dev.yml`) | Azure Database for PostgreSQL – Flexible Server |
+| PostgreSQL | Container `postgres:17-alpine` (trong `docker-compose.dev.yml`) | Azure Database for PostgreSQL – Flexible Server |
 | n8n (WF-1 + MCP server) | Container trong cùng Docker Compose | Azure Container Apps, **min replicas = 1** (nếu scale về 0 thì lịch 00:00 không chạy) |
 | Backend (NestJS) | Chạy bằng Node (`npm run dev`) | Azure Container Apps hoặc App Service |
 | Frontend (Next.js) | Chạy bằng Node (`npm run dev`) | Azure Container Apps hoặc App Service |
@@ -188,6 +188,8 @@ Nguyên tắc:
 
 ### WF-1: Đánh giá CV
 
+> Giải thích từng node của 3 workflow n8n đã dựng (WF-1, MCP server, tool), cách sửa và xử lý sự cố: [n8n-workflows.md](./n8n-workflows.md).
+
 1. **Trigger** — Schedule **00:00 hằng ngày, giờ Việt Nam**. Cần đặt `GENERIC_TIMEZONE=Asia/Ho_Chi_Minh` cho n8n (múi giờ mặc định của n8n không phải giờ VN).
 2. **Dọn đơn treo** — đơn còn `EVALUATING` từ lần chạy trước (vd n8n crash giữa chừng) → trả về `SUBMITTED`.
 3. **Nhận đơn theo lô** — chuyển các đơn `SUBMITTED` → `EVALUATING`, mỗi lô N đơn, lặp đến khi hết. `FOR UPDATE SKIP LOCKED` giúp không lấy trùng đơn nếu có 2 lần chạy chồng nhau (vd bấm chạy tay).
@@ -229,7 +231,7 @@ Nguyên tắc:
 
 - Ép output theo JSON schema: dùng Structured Output Parser của n8n, hoặc `output_config.format` nếu gọi Claude API trực tiếp.
 - Level và số năm yêu cầu là **ngữ cảnh chấm**: cùng một kỹ năng nhưng kỳ vọng với Senior cao hơn với Junior. Số năm / level ước tính chỉ hiển thị cho HR tham khảo, không ảnh hưởng khuyến nghị (D12).
-- Model mặc định: `claude-opus-5-5` *(xem Q5)*. Lưu `model` + `prompt_version` cùng kết quả để truy vết khi chỉnh prompt.
+- Model: `claude-sonnet-5-5` (D31, đã chốt Q5), đặt ở node "Cấu hình" của WF-1. Lưu `model` + `prompt_version` cùng kết quả để truy vết khi chỉnh prompt.
 - n8n lưu lịch sử mỗi lần chạy (execution log), nên có thể xem lại request / response thô khi debug.
 
 **PoC cần làm đầu Phase 2:** kiểm tra node AI Agent của n8n có nhận trực tiếp file PDF không. Ở cách này n8n tự chạy vòng gọi tool MCP, nên MCP server được phép nằm trong mạng nội bộ. Nếu AI Agent không nhận PDF, có 2 hướng thay thế:
@@ -237,6 +239,8 @@ Nguyên tắc:
 - (b) Gọi Messages API bằng node HTTP Request, dùng MCP connector của Claude API → Claude đọc PDF trực tiếp. Nhưng khi đó chính hệ thống của Anthropic gọi tới MCP server, nên MCP server phải có **URL HTTPS public + token** → chỉ làm được khi đã lên Azure.
 
 → Khi chạy Docker local: dùng AI Agent. Nếu AI Agent không nhận PDF thì tạm dùng (a), rồi cân nhắc chuyển sang (b) khi lên Azure.
+
+**Kết quả PoC (2026-11-07):** node AI Agent 3.1 của n8n 2.46 **nhận trực tiếp PDF** (tuỳ chọn `passthroughBinaryPdfs`, đọc được cả CV scan) → dùng AI Agent, không cần (a) hay (b). Chi tiết: [n8n-evaluate-cv-workflow](./features/n8n-evaluate-cv-workflow/requirements.md).
 
 ### Cách tính điểm
 
@@ -337,16 +341,20 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 - [x] 1.4 Frontend: trang chủ, `/jobs`, `/submit-cv` gọi API thật (chọn sẵn `?position=`, JD + tiêu chí, **chỉ PDF**, đồng ý xử lý dữ liệu), `/privacy`; song ngữ vi / en — [features/fe-public-pages](./features/fe-public-pages/)
 
 **Phase 2 — Đánh giá CV (n8n + MCP + Claude)**
-- [ ] Thêm n8n vào Docker Compose: database riêng `n8n`, `GENERIC_TIMEZONE=Asia/Ho_Chi_Minh`, `N8N_ENCRYPTION_KEY` cố định; tạo DB role `n8n_app`, `mcp_readonly`
+- [x] 2.1 Thêm n8n vào Docker Compose — [features/n8n-docker-setup](./features/n8n-docker-setup/):
+  - database riêng `n8n`, `GENERIC_TIMEZONE=Asia/Ho_Chi_Minh`, `N8N_ENCRYPTION_KEY` cố định;
+  - DB role `n8n_app`, `mcp_readonly`;
+  - owner và 2 Postgres credential tạo từ `.env`;
+  - lệnh export / import workflow, smoke-check.
 - [ ] PoC: AI Agent + file PDF + MCP Client Tool (chọn phương án nếu AI Agent không nhận PDF)
-- [ ] Workflow MCP server: tool `get_position_requirements`
-- [ ] WF-1 + prompt v1; thử với bộ CV mẫu (tốt / trung bình / không phù hợp / CV scan / CV có prompt injection)
-- [ ] Export workflow n8n ra file JSON trong repo
+- [x] 2.2 Workflow MCP server: tool `get_position_requirements` — [features/n8n-mcp-server](./features/n8n-mcp-server/)
+- [x] 2.3 WF-1 + prompt v1; thử với bộ CV mẫu (tốt / trung bình / không phù hợp / CV scan / CV có prompt injection) — [features/n8n-evaluate-cv-workflow](./features/n8n-evaluate-cv-workflow/)
+- [x] Export các workflow (MCP, WF-1) ra `n8n/workflows/` bằng `npm run n8n:export`
 
 **Phase 3 — Trang HR**
-- [ ] Auth HR (login, JWT guard)
-- [ ] Danh sách + chi tiết + quyết định + đánh giá lại
-- [ ] Quản lý job & tiêu chí; quản lý danh mục nhóm vị trí & level
+- [x] 3.1 Auth HR (login, JWT cookie httpOnly, guard `/api/hr/*`, chống dò mật khẩu, `/api/hr/users`, trang `/hr/login` + khung `/hr`) — [features/hr-auth](./features/hr-auth/)
+- [x] 3.2 Danh sách (4 tab, lọc / tìm / sắp xếp trong URL) + chi tiết + xem CV (backend trả PDF, nhúng trong trang) + quyết định + đánh giá lại — [features/hr-applications](./features/hr-applications/)
+- [x] 3.3 Quản lý job & tiêu chí; quản lý danh mục nhóm vị trí & level — [features/hr-positions](./features/hr-positions/)
 
 **Phase 4 — Email kết quả (backend)**
 - [ ] Module `mail` (SMTP) + 2 mẫu email (ACCEPTED / REJECTED)
@@ -392,17 +400,24 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D22 | 2026-11-07 | Frontend gọi backend qua **Next.js rewrites** (`/api/*` → `BACKEND_URL`), không bật CORS. |
 | D23 | 2026-11-07 | JD markdown hiển thị bằng **react-markdown**. |
 | D24 | 2026-11-07 | `/privacy`: email nhận yêu cầu về dữ liệu `trantrieu491@gmail.com`; lưu CV **12 tháng** kể từ khi nộp, sau đó xoá. |
+| D25 | 2026-11-07 | n8n local chạy trong `docker-compose.dev.yml` (profile `n8n`, image cố định `n8nio/n8n:2.46.6`). Bật bằng `npm run n8n:up`; container `n8n-init` setup tự động và idempotent. |
+| D26 | 2026-11-07 | Role `n8n` / `n8n_app` / `mcp_readonly` và các `GRANT` nằm trong script setup `n8n/setup/init-db.sh`, **không** nằm trong Prisma migration. |
+| D27 | 2026-11-07 | Owner n8n và 2 Postgres credential (`n8n_app`, `mcp_readonly`, id cố định) được tạo từ `.env`. Workflow export / import qua `n8n/workflows/`. |
+| D28 | 2026-11-07 | Feature hạ tầng (không có code FE / BE) được kiểm chứng bằng script smoke-check thay cho cucumber / unit test. |
+| D29 | 2026-11-07 | Nâng PostgreSQL dev **16 → 17** (n8n 2.46 chỉ còn hỗ trợ tương thích với 16) bằng dump / restore, giữ nguyên dữ liệu; `docker-compose.prod.yml` cũng cố định `postgres:17-alpine`. Lệnh `npm run db:backup` / `db:upgrade`. Azure: chọn PostgreSQL 17 ở Phase 5. |
+| D30 | 2026-11-07 | MCP server dựng trong n8n: workflow `MCP — CV Scanner` (MCP Server Trigger, **Bearer** từ `MCP_AUTH_TOKEN`, endpoint `/mcp/cv-scanner`) + tool `get_position_requirements` gọi sub-workflow có **SQL cố định** chạy bằng role `mcp_readonly` (Claude chỉ truyền `position_id`). Cả 2 workflow nằm trong `n8n/workflows/`, tự import + publish khi `npm run n8n:up`; kiểm bằng `npm run mcp:check`. |
+| D31 | 2026-11-07 | WF-1 (`cvScannerWf1`): 00:00 giờ VN + chạy tay; AI Agent **đọc PDF trực tiếp** + tool MCP + Structured Output Parser, model **`claude-sonnet-5-5`** (Q5); n8n kiểm đủ tiêu chí và tự tính điểm / khuyến nghị (công thức §7). CV tải bằng credential Google Drive tạo từ `.env` (refresh token của backend); khoá Anthropic từ `ANTHROPIC_API_KEY`. Kiểm bằng `npm run wf1:test` / `wf1:check`. |
+| D32 | 2026-11-07 | Trang HR (Phase 3) chia 3 feature: 3.1 đăng nhập, 3.2 đơn ứng tuyển, 3.3 quản lý job / danh mục. Phiên HR: **JWT trong cookie httpOnly** `cvs_hr_session` (SameSite=Lax, 8 giờ, `@nestjs/jwt`, khoá `JWT_SECRET`); guard toàn cục cho mọi `/api/hr/*`; sai 5 lần / 15 phút theo email + IP thì chặn 15 phút; `/api/users` chuyển thành `/api/hr/users`. **1 vai trò HR** (Q6). HR xem CV qua **backend trả file PDF** (Q11). Trang HR song ngữ vi / en. |
+| D33 | 2026-11-07 | Đơn ứng tuyển cho HR (3.2): `/hr` là danh sách với **4 tab** (Cần quyết định mặc định, xếp điểm cao trước), chi tiết ở `/hr/applications/[id]` có CV nhúng. **Quyết định chốt luôn** (ACCEPTED / REJECTED là trạng thái cuối, chỉ từ EVALUATED / EVALUATION_FAILED, có hộp thoại xác nhận); ghi chú không bắt buộc, tối đa 2000 ký tự; cập nhật trạng thái theo kiểu so sánh-và-ghi (HR và n8n không ghi đè nhau). Đánh giá lại giữ kết quả cũ tới khi WF-1 ghi đè. Email kết quả để Phase 4. |
+| D34 | 2026-11-07 | Quản lý job / tiêu chí / danh mục cho HR (3.3): job tạo ra luôn là **DRAFT**, mở cần ≥ 1 tiêu chí; trạng thái chuyển **tự do** DRAFT / OPEN / CLOSED (đóng thì link ứng tuyển đã chia sẻ ngừng nhận đơn); sửa job / tiêu chí **được phép kể cả khi đã có đơn, kèm cảnh báo** (kết quả đã chấm giữ nguyên nhờ snapshot, đơn chưa chấm dùng nội dung mới); **job chưa có đơn thì xoá được**, nhóm / level **chỉ ẩn**; mã (code) tự sinh từ tên (bỏ dấu tiếng Việt) và **không đổi** sau khi tạo; tiêu chí đổi thứ tự bằng nút Lên / Xuống. Không cần migration. |
 
 ---
 
 ## 12. Câu hỏi mở
 
-Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏi-mở-về-database). Đã chốt: Q1 → D13, Q2 → D14, Q3 → D15, Q4 → D16, Q8 → D17, Q9 → D18, Q10 → D19.
+Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏi-mở-về-database). Đã chốt: Q1 → D13, Q2 → D14, Q3 → D15, Q4 → D16, Q8 → D17, Q9 → D18, Q10 → D19, Q13 → D29, Q5 → D31, Q6 + Q11 → D32, DQ5 → D33.
 
 | # | Câu hỏi | Đề xuất |
 |---|---------|---------|
-| Q5 | **Model Claude:** mặc định `claude-opus-5-5` (chất lượng cao nhất trong dòng Opus). Bạn có muốn dùng model rẻ hơn (vd `claude-sonnet-5-5`) cho lượng CV lớn không? | Giữ `claude-opus-5-5`; nếu muốn đổi thì so sánh trên bộ CV mẫu trước. |
-| Q6 | **Phân quyền HR:** mọi HR có quyền như nhau, hay cần vai trò Admin (quản lý tài khoản / job / danh mục) tách với HR? | 1 vai trò cho MVP. |
 | Q7 | **Dữ liệu cá nhân:** checkbox đồng ý (D21), email + thời hạn 12 tháng (D24) đã chốt. Còn lại: `/privacy` cam kết xoá sau 12 tháng → **tự động xoá CV (Drive) + đơn (DB) bằng job định kỳ**, hay HR xoá tay? | Job định kỳ (vd chạy cùng n8n hoặc cron của backend) — làm sau MVP, trước khi chạy thật đủ 12 tháng. |
-| Q11 | **HR xem CV bằng cách nào?** Mở link Drive (HR cần quyền vào thư mục), hay backend proxy file để nhúng trình xem PDF ngay trong trang HR? | Mở link Drive cho MVP. |
 | Q12 | **Dịch vụ Azure cụ thể** khi triển khai (Container Apps hay App Service; PostgreSQL Flexible Server; Key Vault). Chưa cần chốt ngay. | Container Apps cho cả backend, frontend, n8n (cùng 1 cách deploy bằng container) + PostgreSQL Flexible Server — chốt ở Phase 5. |

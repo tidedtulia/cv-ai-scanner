@@ -50,4 +50,12 @@ describe('GoogleDriveCvStorage', () => {
     expect(mocked.refreshAccessToken).toHaveBeenCalledTimes(2);
     expect(mocked.uploadFile).toHaveBeenLastCalledWith('at-2', expect.anything());
   });
+
+  it('download() reads the file with a fresh access token (hr-applications AC-5)', async () => {
+    mocked.downloadFile.mockResolvedValue(Buffer.from('%PDF-'));
+    const storage = new GoogleDriveCvStorage(config);
+
+    await expect(storage.download('file-1')).resolves.toEqual(Buffer.from('%PDF-'));
+    expect(mocked.downloadFile).toHaveBeenCalledWith('at-1', 'file-1');
+  });
 });

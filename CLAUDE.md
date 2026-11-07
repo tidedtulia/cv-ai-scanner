@@ -41,6 +41,20 @@ cd packages/backend && npx prisma migrate dev --name <migration_name>
 
 # Prisma — seed categories, levels, sample positions, first HR account (idempotent)
 cd packages/backend && npx prisma db seed
+
+# Postgres: full dump of the running dev DB → tmp/db-backups/ (gitignored); db:upgrade moves the data to a new major version
+npm run db:backup
+npm run db:upgrade    # stop `npm run dev` and `npm run n8n:down` first; keeps the old data as volume <volume>-pg<old>
+
+# n8n (Docker, profile "n8n"; needs the N8N_* / *_DB_PASSWORD vars in .env)
+npm run n8n:up        # db + n8n-init (database n8n, roles, grants) + n8n (recreated each run; imports + publishes n8n/workflows/) on http://localhost:5678
+npm run n8n:check     # smoke-check: roles / grants / owner / credentials / timezone (read-only)
+npm run mcp:check     # MCP server (/mcp/cv-scanner): auth, tool list, get_position_requirements, injection, no candidate data
+npm run wf1:test      # WF-1 scoring Code node (runs the code inside n8n/workflows/cvScannerWf1.json; free)
+npm run wf1:check     # WF-1 end to end: 5 test CVs through the backend + real Drive + Claude (~7 calls), then cleans up
+npm run n8n:export    # workflows → n8n/workflows/*.json (commit them); n8n:import does the reverse
+npm run n8n:logs
+npm run n8n:down      # stop n8n only; `npm run db:down` stops everything (data kept)
 ```
 
 ## Environment Setup
@@ -50,10 +64,18 @@ cd packages/backend && npx prisma db seed
 - If a local PostgreSQL already uses port 5432, set `POSTGRES_PORT` (and the port in `DATABASE_URL`) to e.g. 5433.
 - CV storage: `CV_STORAGE=local` (files in `tmp/cv-uploads`) for dev, `google-drive` for real — setup in `docs/features/submit-application-api/google-drive-setup.md`. The backend refuses to start without a valid `CV_STORAGE`.
 - Nx loads the root `.env` into every project, so `PORT=3001` (backend) also reaches Next.js — the frontend targets pin `--port 3000` for that reason.
+- HR sign-in: the backend needs `JWT_SECRET` (≥ 32 chars) and refuses to start without it. Every `/api/hr/*` route is protected by the global `HrAuthGuard` (session = JWT in the httpOnly cookie `cvs_hr_session`); `@nestjs/jwt` stays on 11.x because 12.x is ESM-only and breaks Jest. Details: `docs/features/hr-auth/`.
+- Frontend routes: public pages live in the route group `src/app/(public)/` (its layout has the public header / footer), the HR area in `src/app/hr/` (`login/` + `(protected)/`, whose layout checks the session with `GET /api/auth/me`). `src/proxy.ts` (Next.js 16 name of middleware) redirects `/hr/*` without a cookie and sets `no-store` / `noindex`. Server Components read the HR API with `hrBackendGet` (`src/lib/hr-backend.ts`, forwards the cookie, 401 → sign-in page); the HR list state lives in the URL (`src/lib/hr-list-url.ts`). HR forms call the API with `hrRequest` (JSON, on top of `hrFetch`) and show the API error `code` in the UI language (`src/lib/hr-errors.ts`; the code → text maps must cover every key of `HR_POSITION_MESSAGES`, checked by a test). Browser calls to `/api/hr/*` go through `hrFetch` (`src/lib/hr-client.ts`), which sends a 401 back to the sign-in page.
 - Frontend: the browser calls `/api/*` on the Next.js origin, rewritten to `BACKEND_URL` (default `http://localhost:3001`, see `packages/frontend/next.config.js`). Public pages are bilingual: UI texts live in `packages/frontend/src/i18n/dictionaries/{en,vi}.ts` (same shape, checked by a test).
 - Prisma config lives in `packages/backend/prisma.config.ts`; migrations in `packages/backend/prisma/migrations/` are committed. Database design: `docs/database.md`.
 
-The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node.
+The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node. Dev Postgres is `postgres:17-alpine`: a volume holding an older major makes `db:up` fail with "database files are incompatible" — run `npm run db:upgrade`. In dev, n8n (`n8nio/n8n:2.46.6`) also runs in Docker under the compose profile `n8n`, so `npm run db:up` stays Postgres-only.
+
+- n8n setup lives in `n8n/setup/`:
+  - `init-db.sh`: database `n8n`, roles `n8n` / `n8n_app` / `mcp_readonly` and **all their GRANTs**. These are not in Prisma migrations. When a migration adds a table that n8n or MCP needs, add its GRANT to `init-db.sh` and to the expected sets in `check-db.sh`.
+  - `entrypoint.sh`: owner from `.env`, the credentials with fixed ids (`cvScannerN8nApp`, `cvScannerMcpRead`, `cvScannerMcpToken`, `cvScannerAnthropic`, `cvScannerGoogleDrive`), then imports the workflows of `n8n/workflows/` and publishes those exported with `"active": true`. n8n workflows in the repo are the source of truth: after editing one in the UI run `npm run n8n:export`.
+  - Details: `docs/features/n8n-docker-setup/`.
+- Docker Compose reads `.env` differently from dotenv / `node --env-file`: `#` only starts a comment after a space, and `$` is interpolated. Single-quote values that contain `#`, `$` or spaces.
 
 ## Feature workflow (scenario-first)
 
@@ -66,6 +88,7 @@ Every feature has its own branch (`feature/<name>`) and folder `docs/features/<n
    - Frontend: Gherkin `.feature` + `*.steps.spec.tsx` (jest-cucumber, Testing Library) next to the page or component under `__tests__/`, plus unit tests. Shared mocks and fixtures live in `packages/frontend/src/test-utils/`. Async Server Components are rendered with `renderPage()`.
    - Backend: Jest unit tests (`*.spec.ts`). When a behaviour lives in Nest or multer config (limits, filters, pipes), use an HTTP spec with a real Nest app (`app.listen(0)` + `fetch`) and the services mocked.
    - Only what needs a real environment (proxy, Google Drive) is verified by hand, and recorded in `tasks.md`.
+   - Infra features with no FE / BE code (e.g. `n8n-docker-setup`): a smoke-check script that verifies each AC on the real environment (`npm run n8n:check`), plus manual checks recorded in `tasks.md`.
 
 ## Architecture
 
@@ -77,7 +100,7 @@ Every feature has its own branch (`feature/<name>`) and folder `docs/features/<n
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cv-ai-scanner** (1005 symbols, 1767 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cv-ai-scanner** (2765 symbols, 5961 relationships, 227 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

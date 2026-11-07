@@ -1,13 +1,16 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { PositionsModule } from './modules/positions/positions.module';
 import { JobCatalogModule } from './modules/job-catalog/job-catalog.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
+import { HrApplicationsModule } from './modules/hr-applications/hr-applications.module';
+import { HrPositionsModule } from './modules/hr-positions/hr-positions.module';
 
 @Module({
-  imports: [UsersModule, PositionsModule, JobCatalogModule, ApplicationsModule],
+  imports: [AuthModule, UsersModule, PositionsModule, JobCatalogModule, ApplicationsModule, HrApplicationsModule, HrPositionsModule],
   controllers: [AppController],
   providers: [AppService],
 })
