@@ -42,6 +42,10 @@ cd packages/backend && npx prisma migrate dev --name <migration_name>
 # Prisma — seed categories, levels, sample positions, first HR account (idempotent)
 cd packages/backend && npx prisma db seed
 
+# Postgres: full dump of the running dev DB → tmp/db-backups/ (gitignored); db:upgrade moves the data to a new major version
+npm run db:backup
+npm run db:upgrade    # stop `npm run dev` and `npm run n8n:down` first; keeps the old data as volume <volume>-pg<old>
+
 # n8n (Docker, profile "n8n"; needs the N8N_* / *_DB_PASSWORD vars in .env)
 npm run n8n:up        # db + n8n-init (database n8n, roles, grants) + n8n on http://localhost:5678
 npm run n8n:check     # smoke-check: roles / grants / owner / credentials / timezone (read-only)
@@ -60,7 +64,7 @@ npm run n8n:down      # stop n8n only; `npm run db:down` stops everything (data 
 - Frontend: the browser calls `/api/*` on the Next.js origin, rewritten to `BACKEND_URL` (default `http://localhost:3001`, see `packages/frontend/next.config.js`). Public pages are bilingual: UI texts live in `packages/frontend/src/i18n/dictionaries/{en,vi}.ts` (same shape, checked by a test).
 - Prisma config lives in `packages/backend/prisma.config.ts`; migrations in `packages/backend/prisma/migrations/` are committed. Database design: `docs/database.md`.
 
-The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node. In dev, n8n (`n8nio/n8n:2.46.6`) also runs in Docker under the compose profile `n8n`, so `npm run db:up` stays Postgres-only.
+The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node. Dev Postgres is `postgres:17-alpine`: a volume holding an older major makes `db:up` fail with "database files are incompatible" — run `npm run db:upgrade`. In dev, n8n (`n8nio/n8n:2.46.6`) also runs in Docker under the compose profile `n8n`, so `npm run db:up` stays Postgres-only.
 
 - n8n setup lives in `n8n/setup/`:
   - `init-db.sh`: database `n8n`, roles `n8n` / `n8n_app` / `mcp_readonly` and **all their GRANTs**. These are not in Prisma migrations. When a migration adds a table that n8n or MCP needs, add its GRANT to `init-db.sh` and to the expected sets in `check-db.sh`.
@@ -91,7 +95,7 @@ Every feature has its own branch (`feature/<name>`) and folder `docs/features/<n
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cv-ai-scanner** (1070 symbols, 1839 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cv-ai-scanner** (1102 symbols, 1875 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

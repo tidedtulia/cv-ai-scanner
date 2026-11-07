@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     env_file:
       - .env
@@ -24,7 +24,7 @@ services:
 
   # One-shot, every `up`: database n8n + roles n8n / n8n_app / mcp_readonly + grants (idempotent)
   n8n-init:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     profiles: ["n8n"]
     restart: "no"
     depends_on:

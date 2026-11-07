@@ -65,5 +65,5 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md) · Hư�
 
 ## Còn lại / sau này
 
-- [ ] Q13: nâng Postgres 16 → 17 (dev: tạo volume mới + migrate + seed, hoặc dump / restore; Azure: chọn bản 17 ở Phase 5)
+- [x] Q13: nâng Postgres 16 → 17 — xong ở [postgres-17-upgrade](../postgres-17-upgrade/tasks.md) (Azure: chọn bản 17 ở Phase 5)
 - [ ] WF-1 (bước 2.3): kiểm Insert / Update của node Postgres có cần `SELECT` do `RETURNING` hay không (xem ghi chú trong requirements.md)

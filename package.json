@@ -18,7 +18,9 @@
     "n8n:logs": "docker compose -f docker-compose.dev.yml --profile n8n logs -f n8n-init n8n",
     "n8n:export": "sh n8n/setup/workflows.sh export",
     "n8n:import": "sh n8n/setup/workflows.sh import",
-    "n8n:check": "sh n8n/setup/check.sh"
+    "n8n:check": "sh n8n/setup/check.sh",
+    "db:backup": "sh scripts/db/db-backup.sh",
+    "db:upgrade": "sh scripts/db/db-upgrade.sh"
   },
   "private": true,
   "devDependencies": {

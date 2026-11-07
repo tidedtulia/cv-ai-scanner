@@ -303,7 +303,7 @@ Như vậy, kể cả khi CV chứa prompt injection, Claude cũng không đọc
 
 ### Phát hiện khi chạy thật
 
-- **n8n 2.46 cảnh báo Postgres 16** ("outside the supported range … compatibility support only"). n8n vẫn chạy và mọi AC đều pass, nhưng n8n khuyến nghị Postgres 17 → câu hỏi mở Q13 trong [project-overview.md](../../project-overview.md#12-câu-hỏi-mở).
+- **n8n 2.46 cảnh báo Postgres 16** ("outside the supported range … compatibility support only"). n8n vẫn chạy và mọi AC đều pass, nhưng n8n khuyến nghị Postgres 17 → đã nâng lên Postgres 17 ở feature [postgres-17-upgrade](../postgres-17-upgrade/requirements.md) (D29).
 - **Docker Compose và dotenv / `node --env-file` đọc `.env` khác nhau:**
   - Compose chỉ coi `#` là comment khi đứng sau dấu cách, và hiểu `$` là biến.
   - `node --env-file` cắt giá trị ngay tại `#`.

@@ -60,4 +60,3 @@ npm run n8n:import   # n8n/workflows/*.json → n8n (máy mới / database n8n t
 | `n8n-setup: N8N_OWNER_PASSWORD must be …` | Dùng mật khẩu mạnh hơn |
 | Đăng nhập n8n báo sai mật khẩu, dù đã nhập đúng giá trị trong `.env` | Mật khẩu có `$` (bị hiểu là biến) hoặc có `#` đứng sau dấu cách (bị hiểu là comment) → đặt trong dấu nháy đơn, rồi chạy lại `n8n:up` |
 | `Mismatching encryption keys` | `N8N_ENCRYPTION_KEY` đã bị đổi → đặt lại khoá cũ |
-| Log có dòng `Postgres 16 is outside the supported range` | Chỉ là cảnh báo, n8n vẫn chạy: n8n 2.46 khuyến nghị Postgres 17 (Q13) |

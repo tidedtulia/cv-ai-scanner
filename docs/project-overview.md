@@ -76,7 +76,7 @@ Giai đoạn đầu chạy bằng Docker local, sau đó triển khai lên Azure
 
 | Thành phần | Giai đoạn 1 — Docker local | Giai đoạn 2 — Azure *(đề xuất, chốt ở Phase 5 — Q12)* |
 |------------|----------------------------|--------------------------------------------------------|
-| PostgreSQL | Container `postgres:16` (đã có trong `docker-compose.dev.yml`) | Azure Database for PostgreSQL – Flexible Server |
+| PostgreSQL | Container `postgres:17-alpine` (trong `docker-compose.dev.yml`) | Azure Database for PostgreSQL – Flexible Server |
 | n8n (WF-1 + MCP server) | Container trong cùng Docker Compose | Azure Container Apps, **min replicas = 1** (nếu scale về 0 thì lịch 00:00 không chạy) |
 | Backend (NestJS) | Chạy bằng Node (`npm run dev`) | Azure Container Apps hoặc App Service |
 | Frontend (Next.js) | Chạy bằng Node (`npm run dev`) | Azure Container Apps hoặc App Service |
@@ -400,12 +400,13 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D26 | 2026-11-07 | Role `n8n` / `n8n_app` / `mcp_readonly` và các `GRANT` nằm trong script setup `n8n/setup/init-db.sh`, **không** nằm trong Prisma migration. |
 | D27 | 2026-11-07 | Owner n8n và 2 Postgres credential (`n8n_app`, `mcp_readonly`, id cố định) được tạo từ `.env`. Workflow export / import qua `n8n/workflows/`. |
 | D28 | 2026-11-07 | Feature hạ tầng (không có code FE / BE) được kiểm chứng bằng script smoke-check thay cho cucumber / unit test. |
+| D29 | 2026-11-07 | Nâng PostgreSQL dev **16 → 17** (n8n 2.46 chỉ còn hỗ trợ tương thích với 16) bằng dump / restore, giữ nguyên dữ liệu; `docker-compose.prod.yml` cũng cố định `postgres:17-alpine`. Lệnh `npm run db:backup` / `db:upgrade`. Azure: chọn PostgreSQL 17 ở Phase 5. |
 
 ---
 
 ## 12. Câu hỏi mở
 
-Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏi-mở-về-database). Đã chốt: Q1 → D13, Q2 → D14, Q3 → D15, Q4 → D16, Q8 → D17, Q9 → D18, Q10 → D19.
+Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏi-mở-về-database). Đã chốt: Q1 → D13, Q2 → D14, Q3 → D15, Q4 → D16, Q8 → D17, Q9 → D18, Q10 → D19, Q13 → D29.
 
 | # | Câu hỏi | Đề xuất |
 |---|---------|---------|
@@ -414,4 +415,3 @@ Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏ
 | Q7 | **Dữ liệu cá nhân:** checkbox đồng ý (D21), email + thời hạn 12 tháng (D24) đã chốt. Còn lại: `/privacy` cam kết xoá sau 12 tháng → **tự động xoá CV (Drive) + đơn (DB) bằng job định kỳ**, hay HR xoá tay? | Job định kỳ (vd chạy cùng n8n hoặc cron của backend) — làm sau MVP, trước khi chạy thật đủ 12 tháng. |
 | Q11 | **HR xem CV bằng cách nào?** Mở link Drive (HR cần quyền vào thư mục), hay backend proxy file để nhúng trình xem PDF ngay trong trang HR? | Mở link Drive cho MVP. |
 | Q12 | **Dịch vụ Azure cụ thể** khi triển khai (Container Apps hay App Service; PostgreSQL Flexible Server; Key Vault). Chưa cần chốt ngay. | Container Apps cho cả backend, frontend, n8n (cùng 1 cách deploy bằng container) + PostgreSQL Flexible Server — chốt ở Phase 5. |
-| Q13 | **Nâng Postgres 16 → 17?** n8n 2.46 cảnh báo Postgres 16 "outside the supported range" (chỉ còn hỗ trợ tương thích), dù hiện vẫn chạy đúng mọi AC ([n8n-docker-setup](./features/n8n-docker-setup/requirements.md#phát-hiện-khi-chạy-thật)). | Dev: đổi image sang `postgres:17-alpine` với volume mới (dữ liệu dev → migrate + seed lại), làm thành 1 feature nhỏ riêng trước WF-1. Azure: chọn PostgreSQL 17 ở Phase 5. |
