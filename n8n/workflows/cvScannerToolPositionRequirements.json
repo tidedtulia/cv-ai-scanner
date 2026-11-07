@@ -1,0 +1,128 @@
+{
+  "id": "cvScannerToolPositionRequirements",
+  "name": "Tool — get_position_requirements",
+  "description": "Sub-workflow called by the MCP tool get_position_requirements (workflow cvScannerMcpServer). Fixed read-only SQL as role mcp_readonly.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "6f1d0c2a-0000-4000-8000-000000000001",
+      "name": "When called by the MCP tool",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "position_id",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6f1d0c2a-0000-4000-8000-000000000002",
+      "name": "Validate position_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const id = $input.first().json.position_id;\nif (typeof id !== 'string' || id.trim() === '') {\n  throw new Error('position_id is required');\n}\nif (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())) {\n  throw new Error('position_id must be a UUID');\n}\nreturn [{ json: { position_id: id.trim().toLowerCase() } }];"
+      }
+    },
+    {
+      "id": "6f1d0c2a-0000-4000-8000-000000000003",
+      "name": "Read position (mcp_readonly)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        480,
+        0
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT json_build_object(\n  'position_id', p.id,\n  'title', p.title,\n  'description', p.description,\n  'category', c.name,\n  'level', json_build_object('code', l.code, 'name', l.name),\n  'min_years_experience', p.min_years_experience,\n  'criteria', COALESCE((\n    SELECT json_agg(json_build_object(\n      'id', pc.id, 'name', pc.name, 'type', pc.type, 'description', pc.description,\n      'weight', pc.weight, 'is_required', pc.is_required\n    ) ORDER BY pc.sort_order, pc.created_at)\n    FROM position_criteria pc WHERE pc.position_id = p.id\n  ), '[]'::json),\n  'levels', (\n    SELECT COALESCE(json_agg(json_build_object('code', jl.code, 'name', jl.name) ORDER BY jl.sort_order), '[]'::json)\n    FROM job_levels jl WHERE jl.is_active\n  )\n) AS result\nFROM positions p\nJOIN job_categories c ON c.id = p.category_id\nJOIN job_levels l ON l.id = p.level_id\nWHERE p.id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ $json.position_id }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "cvScannerMcpRead",
+          "name": "CV Scanner DB (mcp_readonly)"
+        }
+      }
+    },
+    {
+      "id": "6f1d0c2a-0000-4000-8000-000000000004",
+      "name": "Return requirements or fail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nif (rows.length === 0 || !rows[0].json.result) {\n  throw new Error('position not found');\n}\nreturn [{ json: rows[0].json.result }];"
+      }
+    }
+  ],
+  "connections": {
+    "When called by the MCP tool": {
+      "main": [
+        [
+          {
+            "node": "Validate position_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate position_id": {
+      "main": [
+        [
+          {
+            "node": "Read position (mcp_readonly)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read position (mcp_readonly)": {
+      "main": [
+        [
+          {
+            "node": "Return requirements or fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "versionId": "208b0f6d-cbdb-4ef7-aba1-8e490f693b12",
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

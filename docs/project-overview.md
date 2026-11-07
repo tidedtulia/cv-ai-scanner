@@ -343,7 +343,7 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
   - owner và 2 Postgres credential tạo từ `.env`;
   - lệnh export / import workflow, smoke-check.
 - [ ] PoC: AI Agent + file PDF + MCP Client Tool (chọn phương án nếu AI Agent không nhận PDF)
-- [ ] Workflow MCP server: tool `get_position_requirements`
+- [x] 2.2 Workflow MCP server: tool `get_position_requirements` — [features/n8n-mcp-server](./features/n8n-mcp-server/)
 - [ ] WF-1 + prompt v1; thử với bộ CV mẫu (tốt / trung bình / không phù hợp / CV scan / CV có prompt injection)
 - [ ] Export các workflow (MCP, WF-1) ra `n8n/workflows/` bằng `npm run n8n:export`
 
@@ -401,6 +401,7 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D27 | 2026-11-07 | Owner n8n và 2 Postgres credential (`n8n_app`, `mcp_readonly`, id cố định) được tạo từ `.env`. Workflow export / import qua `n8n/workflows/`. |
 | D28 | 2026-11-07 | Feature hạ tầng (không có code FE / BE) được kiểm chứng bằng script smoke-check thay cho cucumber / unit test. |
 | D29 | 2026-11-07 | Nâng PostgreSQL dev **16 → 17** (n8n 2.46 chỉ còn hỗ trợ tương thích với 16) bằng dump / restore, giữ nguyên dữ liệu; `docker-compose.prod.yml` cũng cố định `postgres:17-alpine`. Lệnh `npm run db:backup` / `db:upgrade`. Azure: chọn PostgreSQL 17 ở Phase 5. |
+| D30 | 2026-11-07 | MCP server dựng trong n8n: workflow `MCP — CV Scanner` (MCP Server Trigger, **Bearer** từ `MCP_AUTH_TOKEN`, endpoint `/mcp/cv-scanner`) + tool `get_position_requirements` gọi sub-workflow có **SQL cố định** chạy bằng role `mcp_readonly` (Claude chỉ truyền `position_id`). Cả 2 workflow nằm trong `n8n/workflows/`, tự import + publish khi `npm run n8n:up`; kiểm bằng `npm run mcp:check`. |
 
 ---
 

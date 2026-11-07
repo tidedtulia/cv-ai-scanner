@@ -1,4 +1,4 @@
-// Writes the 2 Postgres credentials (plain data) for `n8n import:credentials`, which encrypts them
+// Writes the credentials (2 Postgres + the MCP bearer token) (plain data) for `n8n import:credentials`, which encrypts them
 // with N8N_ENCRYPTION_KEY and upserts by id. Called by entrypoint.sh with a temp file path, deleted right after.
 // The ids are fixed so exported workflows point to the same credentials on every machine.
 const { writeFileSync } = require('node:fs');
@@ -28,5 +28,12 @@ const credentials = [
     data: { ...connection, user: 'mcp_readonly', password: env.MCP_DB_PASSWORD },
   },
 ];
+
+credentials.push({
+  id: 'cvScannerMcpToken',
+  name: 'CV Scanner MCP token',
+  type: 'httpBearerAuth',
+  data: { token: env.MCP_AUTH_TOKEN },
+});
 
 writeFileSync(process.argv[2], JSON.stringify(credentials), { mode: 0o600 });

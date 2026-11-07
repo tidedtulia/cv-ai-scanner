@@ -2,7 +2,8 @@
 # Entrypoint of the `n8n` service (replaces the image's /docker-entrypoint.sh, then calls it):
 # 1. check the .env variables
 # 2. owner managed by env: hash N8N_OWNER_PASSWORD (bcrypt) — the hash never touches a file
-# 3. import the 2 Postgres credentials (fixed ids, upsert, encrypted with N8N_ENCRYPTION_KEY)
+# 3. import the credentials (2 Postgres + MCP bearer token; fixed ids, upsert, encrypted with N8N_ENCRYPTION_KEY)
+#    and the workflows of n8n/workflows/ (published when marked active)
 # 4. drop the plain passwords from the environment and start n8n
 set -eu
 
@@ -12,7 +13,7 @@ fail() {
 }
 
 missing=""
-for name in N8N_ENCRYPTION_KEY N8N_OWNER_EMAIL N8N_OWNER_PASSWORD DB_POSTGRESDB_PASSWORD POSTGRES_DB N8N_APP_DB_PASSWORD MCP_DB_PASSWORD; do
+for name in N8N_ENCRYPTION_KEY N8N_OWNER_EMAIL N8N_OWNER_PASSWORD DB_POSTGRESDB_PASSWORD POSTGRES_DB N8N_APP_DB_PASSWORD MCP_DB_PASSWORD MCP_AUTH_TOKEN; do
   eval "value=\${$name:-}"
   [ -n "$value" ] || missing="$missing $name"
 done
@@ -26,6 +27,8 @@ if [ "$password_length" -lt 8 ] || [ "$password_length" -gt 64 ] ||
   ! printf '%s' "$N8N_OWNER_PASSWORD" | grep -q '[A-Z]'; then
   fail "N8N_OWNER_PASSWORD must be 8-64 characters with at least 1 number and 1 uppercase letter"
 fi
+
+[ ${#MCP_AUTH_TOKEN} -ge 32 ] || fail "MCP_AUTH_TOKEN must be at least 32 characters (generate one: openssl rand -hex 32)"
 
 N8N_MODULES=/usr/local/lib/node_modules/n8n/node_modules
 
@@ -43,10 +46,20 @@ umask 077
 credentials_file=$(mktemp)
 trap 'rm -f "$credentials_file"' EXIT INT TERM
 node /setup/credentials.cjs "$credentials_file"
-echo "n8n-setup: importing Postgres credentials (n8n_app, mcp_readonly)"
+echo "n8n-setup: importing credentials (Postgres n8n_app / mcp_readonly, MCP token)"
 n8n import:credentials --input="$credentials_file"
 rm -f "$credentials_file"
 trap - EXIT INT TERM
 
-unset N8N_OWNER_PASSWORD N8N_APP_DB_PASSWORD MCP_DB_PASSWORD
+# Workflows in the repo are the source of truth: import them, then publish the ones exported with "active": true
+# (the publish takes effect when n8n starts below).
+if ls /workflows/*.json >/dev/null 2>&1; then
+  echo "n8n-setup: importing workflows from n8n/workflows/"
+  n8n import:workflow --separate --input=/workflows/
+  for id in $(node /setup/active-workflows.cjs /workflows); do
+    n8n publish:workflow --id="$id"
+  done
+fi
+
+unset N8N_OWNER_PASSWORD N8N_APP_DB_PASSWORD MCP_DB_PASSWORD MCP_AUTH_TOKEN
 exec /docker-entrypoint.sh start

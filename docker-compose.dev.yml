@@ -79,6 +79,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       N8N_APP_DB_PASSWORD: ${N8N_APP_DB_PASSWORD:-}
       MCP_DB_PASSWORD: ${MCP_DB_PASSWORD:-}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/setup:/setup:ro

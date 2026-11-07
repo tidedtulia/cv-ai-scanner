@@ -13,6 +13,7 @@ openssl rand -hex 32    # dùng làm N8N_ENCRYPTION_KEY
 | `N8N_ENCRYPTION_KEY` | Chuỗi vừa sinh. **Không đổi sau khi đã setup**: đổi thì n8n không mở được credential cũ. |
 | `N8N_DB_PASSWORD`, `N8N_APP_DB_PASSWORD`, `MCP_DB_PASSWORD` | 3 mật khẩu bất kỳ, khác nhau. Script tự tạo hoặc cập nhật role theo các giá trị này. |
 | `N8N_OWNER_EMAIL`, `N8N_OWNER_PASSWORD` | Tài khoản đăng nhập n8n. Mật khẩu dài 8–64 ký tự, có ít nhất 1 chữ số và 1 chữ in hoa. |
+| `MCP_AUTH_TOKEN` | Bearer token của MCP server (≥ 32 ký tự): `openssl rand -hex 32`. Xem [n8n-mcp-server](../n8n-mcp-server/requirements.md). |
 | `N8N_OWNER_FIRST_NAME`, `N8N_OWNER_LAST_NAME`, `N8N_HOST_PORT` | Không bắt buộc. Port mặc định là `5678`. |
 
 Docker Compose đọc các giá trị này theo quy tắc riêng: `$` bị hiểu là biến, còn `#` đứng sau dấu cách bị hiểu là bắt đầu comment. Giá trị có `#`, `$` hoặc dấu cách thì đặt trong **dấu nháy đơn**, vd `N8N_OWNER_PASSWORD='Abc#123$x'`.
@@ -31,6 +32,10 @@ Mở http://localhost:5678 và đăng nhập bằng `N8N_OWNER_EMAIL` / `N8N_OWN
 - `CV Scanner DB (mcp_readonly)`: dùng cho workflow MCP.
 
 Đổi mật khẩu hoặc quyền: sửa `.env` hoặc `n8n/setup/init-db.sh`, rồi chạy lại `npm run n8n:up`. Role, owner và credential sẽ được cập nhật theo.
+
+## MCP server cho Claude
+
+`npm run n8n:up` cũng import và publish 2 workflow trong `n8n/workflows/`; MCP server chạy ở `http://localhost:5678/mcp/cv-scanner` (header `Authorization: Bearer <MCP_AUTH_TOKEN>`). Kiểm tra: `npm run mcp:check`. `n8n:up` tạo lại container n8n mỗi lần chạy, nên workflow sửa trên giao diện sẽ bị ghi đè bằng bản trong repo: sửa xong nhớ `npm run n8n:export`.
 
 ## 3. Lưu workflow vào repo
 
