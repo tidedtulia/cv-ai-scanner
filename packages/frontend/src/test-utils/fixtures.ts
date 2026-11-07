@@ -65,6 +65,7 @@ export const hrListItem = (over: Record<string, unknown> = {}) => ({
   position: { code: 'backend-dev', title: 'Backend Developer', category: 'Developer', level: 'Middle' },
   overallScore: 83.33,
   recommendation: 'RECOMMENDED',
+  emailPending: false,
   ...over,
 });
 
@@ -119,6 +120,9 @@ export const hrDetail = (over: Record<string, unknown> = {}) => ({
   otherApplications: [],
   canDecide: true,
   canReEvaluate: true,
+  locale: 'vi',
+  resultEmailSentAt: null,
+  canResendEmail: false,
   ...over,
 });
 

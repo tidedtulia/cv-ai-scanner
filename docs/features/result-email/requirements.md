@@ -74,7 +74,7 @@ Mỗi AC là một scenario. Mọi API HR yêu cầu đăng nhập (401) và ch�
 **When:** `GET /api/hr/applications/:id/email-preview?decision=ACCEPTED` (hoặc `REJECTED`)
 **Then:**
 - 200 `{ locale, to, subject, text, html }`: nội dung đúng mẫu của **ngôn ngữ của đơn**, với tên và job của đơn đó; `to` là email của ứng viên (kể cả khi `MAIL_REDIRECT_TO` đang bật — HR luôn thấy người nhận thật).
-- Không gửi gì, không đổi dữ liệu; chỉ cho đơn đang ở `EVALUATED` / `EVALUATION_FAILED` (đơn khác → 409 `STATUS_NOT_ALLOWED`).
+- Không gửi gì, không đổi dữ liệu. Đơn đang ở `EVALUATED` / `EVALUATION_FAILED`: xem trước được cả hai quyết định. Đơn đã `ACCEPTED` / `REJECTED`: chỉ xem trước được email của **chính quyết định đó** (cho hộp thoại **Gửi lại**, AC-11). Còn lại → 409 `STATUS_NOT_ALLOWED`.
 - `decision` thiếu / sai → 400 `DECISION_INVALID`; không có đơn → 404 `APPLICATION_NOT_FOUND`.
 
 ### Gửi email khi chốt kết quả

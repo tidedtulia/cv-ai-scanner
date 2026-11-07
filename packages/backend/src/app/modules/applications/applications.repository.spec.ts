@@ -24,6 +24,7 @@ describe('ApplicationsRepository', () => {
       id: 'a1',
       fullName: 'Jane Doe',
       email: 'jane@example.com',
+      locale: 'en' as const,
       positionId: 'p1',
       cvFileName: 'cv.pdf',
       cvDriveFileId: 'f1',

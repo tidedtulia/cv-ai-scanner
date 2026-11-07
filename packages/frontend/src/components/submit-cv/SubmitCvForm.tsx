@@ -37,7 +37,7 @@ interface SubmitCvFormProps {
 }
 
 export function SubmitCvForm({ positions, initialPositionCode = '' }: SubmitCvFormProps) {
-  const { dict } = useI18n();
+  const { dict, locale } = useI18n();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [positionCode, setPositionCode] = useState(initialPositionCode);
@@ -94,6 +94,8 @@ export function SubmitCvForm({ positions, initialPositionCode = '' }: SubmitCvFo
     formData.append(APPLICATION_FORM_FIELDS.POSITION, positionCode);
     formData.append(APPLICATION_FORM_FIELDS.CV, cvFile as File);
     formData.append(APPLICATION_FORM_FIELDS.CONSENT, APPLICATION_CONSENT_VALUE);
+    // The result email is sent in this language (result-email AC-1)
+    formData.append(APPLICATION_FORM_FIELDS.LOCALE, locale);
 
     try {
       const res = await fetch(clientApi.applications, { method: 'POST', body: formData });

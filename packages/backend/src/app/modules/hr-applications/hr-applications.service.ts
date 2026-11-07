@@ -5,22 +5,29 @@ import {
   HR_APPLICATION_TAB_KEYS,
   HR_APPLICATION_TABS,
   HR_APPLICATIONS_PAGE_SIZE,
+  HR_DECIDED_STATUSES,
   HR_DECISION_NOTE_MAX_LENGTH,
   HR_DEFAULT_APPLICATION_TAB,
   HR_RE_EVALUATE_NOTE,
   HR_SEARCH_MAX_LENGTH,
+  normalizeApplicationLocale,
   type ApplicationStatus,
   type HrApplicationMessageCode,
   type HrApplicationSort,
   type HrApplicationTab,
+  type HrDecision,
   type ICriterionScore,
   type IHrApplicationDetail,
   type IHrApplicationFilters,
   type IHrApplicationListResponse,
+  type IHrDecisionResponse,
+  type IHrEmailPreview,
   type Recommendation,
 } from '@org/shared';
 import { apiException } from '../../common/api-error';
 import { CvStorage } from '../applications/storage/cv-storage';
+import { MailService } from '../mail/mail.service';
+import { renderResultEmail } from '../mail/mail-templates';
 import { HrApplicationsRepository, type HrListFilters } from './hr-applications.repository';
 
 const error = (status: HttpStatus, code: HrApplicationMessageCode) => apiException(status, code, HR_APPLICATION_MESSAGES[code]);
@@ -43,6 +50,7 @@ export class HrApplicationsService {
   constructor(
     private readonly repo: HrApplicationsRepository,
     private readonly storage: CvStorage,
+    private readonly mail: MailService,
   ) {}
 
   /** AC-1, AC-2 */
@@ -66,6 +74,7 @@ export class HrApplicationsService {
         position: { code: row.position_code, title: row.position_title, category: row.category_name, level: row.level_name },
         overallScore: toNumber(row.overall_score),
         recommendation: row.recommendation,
+        emailPending: HR_DECIDED_STATUSES.includes(row.status) && !row.result_email_sent_at,
       })),
       total: counts[tab],
       page,
@@ -134,6 +143,9 @@ export class HrApplicationsService {
       })),
       canDecide: actionable,
       canReEvaluate: actionable,
+      locale: normalizeApplicationLocale(app.locale),
+      resultEmailSentAt: app.resultEmailSentAt ? toIso(app.resultEmailSentAt) : null,
+      canResendEmail: HR_DECIDED_STATUSES.includes(app.status) && !app.resultEmailSentAt,
     };
   }
 
@@ -152,8 +164,26 @@ export class HrApplicationsService {
     return { content, fileName: app.cvFileName };
   }
 
-  /** AC-6 */
-  async decide(id: string, body: unknown, hrUserId: string): Promise<IHrApplicationDetail> {
+  /** AC-3 (result-email): the email a decision sends (or sent), nothing is sent */
+  async emailPreview(id: string, decisionParam: unknown): Promise<IHrEmailPreview> {
+    if (decisionParam !== 'ACCEPTED' && decisionParam !== 'REJECTED') throw error(HttpStatus.BAD_REQUEST, 'DECISION_INVALID');
+    const data = await this.repo.findEmailData(id);
+    if (!data) throw error(HttpStatus.NOT_FOUND, 'APPLICATION_NOT_FOUND');
+    // Before the decision any of the two can be previewed; after it, only the email of that decision ("Gửi lại")
+    if (!HR_ACTIONABLE_STATUSES.includes(data.status) && data.status !== decisionParam) throw this.notAllowed(data.status);
+    const locale = normalizeApplicationLocale(data.locale);
+    const email = renderResultEmail({
+      locale,
+      decision: decisionParam,
+      fullName: data.fullName,
+      positionTitle: data.position.title,
+      privacyEmail: this.mail.privacyEmail,
+    });
+    return { locale, to: data.email, ...email };
+  }
+
+  /** AC-6, and AC-4 (result-email): save the decision, then send the email; a failed send keeps the decision */
+  async decide(id: string, body: unknown, hrUserId: string): Promise<IHrDecisionResponse> {
     const input = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
     const decision = input['decision'];
     if (decision !== 'ACCEPTED' && decision !== 'REJECTED') throw error(HttpStatus.BAD_REQUEST, 'DECISION_INVALID');
@@ -163,7 +193,52 @@ export class HrApplicationsService {
     if (note.length > HR_DECISION_NOTE_MAX_LENGTH) throw error(HttpStatus.BAD_REQUEST, 'NOTE_TOO_LONG');
 
     await this.changeStatus(id, decision, note || null, hrUserId);
-    return this.detail(id);
+    const emailSent = (await this.deliverResultEmail(id)) === 'sent';
+    return { ...(await this.detail(id)), emailSent };
+  }
+
+  /** AC-5 (result-email) */
+  async resendEmail(id: string): Promise<IHrDecisionResponse> {
+    const data = await this.repo.findEmailData(id);
+    if (!data) throw error(HttpStatus.NOT_FOUND, 'APPLICATION_NOT_FOUND');
+    if (!HR_DECIDED_STATUSES.includes(data.status)) throw this.notAllowed(data.status);
+    if (data.resultEmailSentAt) throw error(HttpStatus.CONFLICT, 'EMAIL_ALREADY_SENT');
+
+    const outcome = await this.deliverResultEmail(id);
+    if (outcome === 'taken') throw error(HttpStatus.CONFLICT, 'EMAIL_ALREADY_SENT');
+    if (outcome === 'failed') throw error(HttpStatus.BAD_GATEWAY, 'EMAIL_SEND_FAILED');
+    return { ...(await this.detail(id)), emailSent: true };
+  }
+
+  /**
+   * Claim → send → (give the claim back on failure). Never throws for a send problem: the caller decides what it means.
+   * 'taken' = another request already sent (or is sending) it.
+   */
+  private async deliverResultEmail(id: string): Promise<'sent' | 'failed' | 'taken'> {
+    if (!(await this.repo.claimEmailSend(id, HR_DECIDED_STATUSES))) return 'taken';
+    try {
+      const data = await this.repo.findEmailData(id);
+      if (!data) throw new Error('application disappeared');
+      const email = renderResultEmail({
+        locale: normalizeApplicationLocale(data.locale),
+        decision: data.status as HrDecision,
+        fullName: data.fullName,
+        positionTitle: data.position.title,
+        privacyEmail: this.mail.privacyEmail,
+      });
+      await this.mail.send(data.email, email);
+      return 'sent';
+    } catch (cause) {
+      this.logger.error(`Result email of application ${id} was not sent: ${(cause as Error).message}`);
+      await this.repo.releaseEmailSend(id).catch((releaseError: Error) =>
+        this.logger.error(`Could not release the email claim of application ${id}`, releaseError.stack),
+      );
+      return 'failed';
+    }
+  }
+
+  private notAllowed(status: ApplicationStatus | undefined) {
+    return apiException(HttpStatus.CONFLICT, 'STATUS_NOT_ALLOWED', HR_APPLICATION_MESSAGES.STATUS_NOT_ALLOWED, { currentStatus: status ?? null });
   }
 
   /** AC-7 */
@@ -175,11 +250,7 @@ export class HrApplicationsService {
   private async changeStatus(id: string, to: ApplicationStatus, note: string | null, hrUserId: string) {
     const outcome = await this.repo.changeStatus(id, HR_ACTIONABLE_STATUSES, to, note, hrUserId);
     if (outcome.result === 'not-found') throw error(HttpStatus.NOT_FOUND, 'APPLICATION_NOT_FOUND');
-    if (outcome.result === 'not-allowed') {
-      throw apiException(HttpStatus.CONFLICT, 'STATUS_NOT_ALLOWED', HR_APPLICATION_MESSAGES.STATUS_NOT_ALLOWED, {
-        currentStatus: outcome.status ?? null,
-      });
-    }
+    if (outcome.result === 'not-allowed') throw this.notAllowed(outcome.status);
   }
 
   /** AC-2: unknown values / repeated parameters → 400 INVALID_QUERY */

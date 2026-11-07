@@ -28,6 +28,8 @@ describe('HR applications over HTTP (hr-applications)', () => {
     cv: jest.fn(),
     decide: jest.fn().mockResolvedValue({ id: APP_ID, status: 'ACCEPTED' }),
     reEvaluate: jest.fn().mockResolvedValue({ id: APP_ID, status: 'SUBMITTED' }),
+    emailPreview: jest.fn().mockResolvedValue({ locale: 'vi', to: 'a@example.com', subject: 's', text: 't', html: 'h' }),
+    resendEmail: jest.fn().mockResolvedValue({ id: APP_ID, emailSent: true }),
   };
   const env = { JWT_SECRET: process.env['JWT_SECRET'], CV_STORAGE: process.env['CV_STORAGE'] };
 
@@ -119,6 +121,37 @@ describe('HR applications over HTTP (hr-applications)', () => {
     expect(text.status).toBe(415);
     expect(service.decide).not.toHaveBeenCalled();
     expect(service.reEvaluate).not.toHaveBeenCalled();
+  });
+
+  it('result-email AC-8: the new routes need a session (401) and JSON for the write (415)', async () => {
+    const preview = await get(`/hr/applications/${APP_ID}/email-preview?decision=ACCEPTED`, null);
+    expect(preview.status).toBe(401);
+    const resendAnonymous = await fetch(`${base}/hr/applications/${APP_ID}/resend-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    expect(resendAnonymous.status).toBe(401);
+    const resendForm = await post(`/hr/applications/${APP_ID}/resend-email`, 'x=1', { 'Content-Type': 'application/x-www-form-urlencoded' });
+    expect(resendForm.status).toBe(415);
+    expect(service.emailPreview).not.toHaveBeenCalled();
+    expect(service.resendEmail).not.toHaveBeenCalled();
+  });
+
+  it('result-email AC-3: the preview gets the id and the decision from the query string; a non-uuid id → 400', async () => {
+    const response = await get(`/hr/applications/${APP_ID}/email-preview?decision=REJECTED`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ locale: 'vi', to: 'a@example.com' });
+    expect(service.emailPreview).toHaveBeenCalledWith(APP_ID, 'REJECTED');
+    expect((await get('/hr/applications/not-a-uuid/email-preview?decision=REJECTED')).status).toBe(400);
+  });
+
+  it('result-email AC-5, AC-8: resend takes only the id (no content from the client); a 502 / 409 keeps its code', async () => {
+    const ok = await post(`/hr/applications/${APP_ID}/resend-email`, { subject: 'evil', to: 'x@evil.com', html: '<b>' });
+    expect(ok.status).toBe(200);
+    expect(service.resendEmail).toHaveBeenCalledWith(APP_ID);
+    service.resendEmail.mockRejectedValueOnce(apiException(502, 'EMAIL_SEND_FAILED', 'x'));
+    const failed = await post(`/hr/applications/${APP_ID}/resend-email`, {});
+    expect([failed.status, ((await failed.json()) as { code: string }).code]).toEqual([502, 'EMAIL_SEND_FAILED']);
+    service.resendEmail.mockRejectedValueOnce(apiException(409, 'EMAIL_ALREADY_SENT', 'x'));
+    const sent = await post(`/hr/applications/${APP_ID}/resend-email`, {});
+    expect([sent.status, ((await sent.json()) as { code: string }).code]).toEqual([409, 'EMAIL_ALREADY_SENT']);
   });
 
   it('AC-6: a 409 from the service keeps currentStatus in the body', async () => {

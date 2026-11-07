@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import type { ApplicationLocale } from '@org/shared';
 import { PrismaService } from '../../database/prisma.service';
 
 export interface NewApplication {
   id: string;
   fullName: string;
   email: string;
+  locale: ApplicationLocale;
   positionId: string;
   cvFileName: string;
   cvDriveFileId: string;

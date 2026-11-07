@@ -21,6 +21,13 @@ Feature: HR list of applications (hr-applications AC-9 → AC-12)
     And the row of "Lê Thị Bình" shows "Chờ chấm" and "—" instead of a score
     And "Nguyễn Văn An" links to "/hr/applications/a1?from=tab%3Dall"
 
+  Scenario: Decided applications whose email is not sent are marked (result-email AC-12)
+    Given my browser prefers Vietnamese
+    And the list has a decided application without email and one with its email sent
+    When I open the HR list "/hr?tab=decided"
+    Then the row of "Nguyễn Văn An" shows "Đã nhận" and "Chưa gửi email"
+    And the row of "Lê Thị Bình" shows "Đã từ chối" but not "Chưa gửi email"
+
   Scenario: Filters, search and sort are in the form and in the URL (AC-10)
     Given my browser prefers Vietnamese
     When I open the HR list "/hr?tab=all&position=old-job&recommendation=CONSIDER&q=lan&sort=score"

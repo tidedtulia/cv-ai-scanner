@@ -124,6 +124,31 @@ defineFeature(feature, (test) => {
     });
   });
 
+  test('The result email of a decided application (result-email AC-11)', ({ given, and, when, then }) => {
+    vi(given);
+    and(/^the application is "(.*)" and (its email is not sent|its email was sent at "(.*)")$/, (status: string, state: string, at?: string) => {
+      detail = hrDetail({ status, canDecide: false, canReEvaluate: false, resultEmailSentAt: at ?? null, canResendEmail: !at });
+    });
+    whenOpen(when);
+    then(/^I see the heading "(.*)"$/, (name: string) => expect(screen.getByRole('heading', { name })).toBeTruthy());
+    see(and);
+    and(/^the "(.*)" button is (shown|hidden)$/, (name: string, state: string) => {
+      expect(screen.queryByRole('button', { name }) !== null).toBe(state === 'shown');
+    });
+    and('I do not see the decision buttons', () => {
+      expect(screen.queryByRole('button', { name: 'Nhận' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Từ chối' })).toBeNull();
+    });
+  });
+
+  test('No result email section before a decision (result-email AC-11)', ({ given, when, then }) => {
+    given('the application is "EVALUATED" and its email is not sent', () => {
+      detail = hrDetail({ status: 'EVALUATED' });
+    });
+    whenOpen(when);
+    then(/^I do not see the heading "(.*)"$/, (name: string) => expect(screen.queryByRole('heading', { name })).toBeNull());
+  });
+
   test('Status history and other applications (AC-15)', ({ given, and, when, then }) => {
     vi(given);
     and(/^the application has a decision by "(.*)" with the note "(.*)" and another application "(.*)"$/, (hr: string, note: string, other: string) => {

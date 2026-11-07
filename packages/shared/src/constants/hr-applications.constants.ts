@@ -17,6 +17,9 @@ export const HR_ACTIONABLE_STATUSES: readonly ApplicationStatus[] = ['EVALUATED'
 export const HR_APPLICATIONS_PAGE_SIZE = 20;
 export const HR_SEARCH_MAX_LENGTH = 255;
 export const HR_DECISION_NOTE_MAX_LENGTH = 2000;
+/** Statuses whose result email is sent (or resent) — the final decisions */
+export const HR_DECIDED_STATUSES: readonly ApplicationStatus[] = ['ACCEPTED', 'REJECTED'];
+
 export const HR_RE_EVALUATE_NOTE = 'HR yêu cầu đánh giá lại';
 
 /** English messages of the HR applications API; the key is returned as `code` */
@@ -28,6 +31,8 @@ export const HR_APPLICATION_MESSAGES = {
   DECISION_INVALID: 'decision must be ACCEPTED or REJECTED',
   NOTE_TOO_LONG: `The note must be text of at most ${HR_DECISION_NOTE_MAX_LENGTH} characters`,
   STATUS_NOT_ALLOWED: 'This action is not possible in the current status of the application',
+  EMAIL_ALREADY_SENT: 'The result email was already sent',
+  EMAIL_SEND_FAILED: 'The email could not be sent right now',
 } as const;
 
 export type HrApplicationMessageCode = keyof typeof HR_APPLICATION_MESSAGES;

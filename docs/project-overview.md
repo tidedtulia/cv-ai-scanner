@@ -303,13 +303,14 @@ Giao diện **song ngữ vi / en** (D20): URL không đổi, ngôn ngữ lưu tr
 ### 8.4 Email kết quả (backend)
 
 - **Backend** gửi email (module `mail`, qua SMTP) ngay sau khi HR xác nhận kết quả cuối cùng (D16).
-- 2 mẫu có sẵn: **ACCEPTED** và **REJECTED**, lưu dạng file template trong backend, với các biến như họ tên ứng viên, tên job. HR không sửa nội dung; hộp thoại xác nhận chỉ hiện bản xem trước (D18).
-- Gửi từ 1 hộp thư HR chung (cấu hình SMTP trong biến môi trường).
+- 2 mẫu **ACCEPTED** và **REJECTED**, mỗi mẫu có bản **vi** và **en** (viết trong code, hàm thuần), với họ tên ứng viên và tên job. HR không sửa nội dung; hộp thoại xác nhận chỉ hiện bản xem trước (D18). Email gửi bằng ngôn ngữ ứng viên dùng lúc nộp (`applications.locale`), nội dung không có điểm AI, lý do hay ghi chú nội bộ (D35).
+- Gửi từ 1 hộp thư HR chung qua SMTP (Gmail + App Password; biến `SMTP_*`, `MAIL_FROM`). `MAIL_REDIRECT_TO` đưa mọi email về một hộp thư thử khi dev.
 - Thứ tự xử lý:
   1. Lưu quyết định + lịch sử (1 transaction).
   2. Gửi email.
   3. Đặt `result_email_sent_at = now()`.
-- Gửi email lỗi **không** làm mất quyết định. `result_email_sent_at` còn `NULL` → trang HR hiện "Chưa gửi được email" + nút "Gửi lại".
+- Gửi email lỗi **không** làm mất quyết định. `result_email_sent_at` còn `NULL` → trang HR hiện "Chưa gửi được email" + nút "Gửi lại" (`POST /api/hr/applications/:id/resend-email`); danh sách đánh dấu "Chưa gửi email".
+- `result_email_sent_at` được đặt **trước** khi gửi (cập nhật có điều kiện `IS NULL`) và trả về `NULL` nếu gửi lỗi: hai lần bấm cùng lúc chỉ gửi một email.
 - `result_email_sent_at` cũng chống gửi trùng khi HR bấm nhiều lần.
 
 ---
@@ -357,9 +358,9 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 - [x] 3.3 Quản lý job & tiêu chí; quản lý danh mục nhóm vị trí & level — [features/hr-positions](./features/hr-positions/)
 
 **Phase 4 — Email kết quả (backend)**
-- [ ] Module `mail` (SMTP) + 2 mẫu email (ACCEPTED / REJECTED)
-- [ ] Bản xem trước email trong hộp thoại xác nhận
-- [ ] Gửi email khi HR quyết định; trạng thái "Chưa gửi được" + nút "Gửi lại"
+- [x] Module `mail` (SMTP, nodemailer) + mẫu email ACCEPTED / REJECTED × vi / en; lưu `applications.locale` lúc nộp
+- [x] Bản xem trước email trong hộp thoại xác nhận
+- [x] Gửi email khi HR quyết định; trạng thái "Chưa gửi được" + nút "Gửi lại"; `npm run mail:check` — [features/result-email](./features/result-email/)
 
 **Phase 5 — Triển khai Azure**
 - [ ] Chốt dịch vụ Azure (Q12)
@@ -410,6 +411,7 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D32 | 2026-11-07 | Trang HR (Phase 3) chia 3 feature: 3.1 đăng nhập, 3.2 đơn ứng tuyển, 3.3 quản lý job / danh mục. Phiên HR: **JWT trong cookie httpOnly** `cvs_hr_session` (SameSite=Lax, 8 giờ, `@nestjs/jwt`, khoá `JWT_SECRET`); guard toàn cục cho mọi `/api/hr/*`; sai 5 lần / 15 phút theo email + IP thì chặn 15 phút; `/api/users` chuyển thành `/api/hr/users`. **1 vai trò HR** (Q6). HR xem CV qua **backend trả file PDF** (Q11). Trang HR song ngữ vi / en. |
 | D33 | 2026-11-07 | Đơn ứng tuyển cho HR (3.2): `/hr` là danh sách với **4 tab** (Cần quyết định mặc định, xếp điểm cao trước), chi tiết ở `/hr/applications/[id]` có CV nhúng. **Quyết định chốt luôn** (ACCEPTED / REJECTED là trạng thái cuối, chỉ từ EVALUATED / EVALUATION_FAILED, có hộp thoại xác nhận); ghi chú không bắt buộc, tối đa 2000 ký tự; cập nhật trạng thái theo kiểu so sánh-và-ghi (HR và n8n không ghi đè nhau). Đánh giá lại giữ kết quả cũ tới khi WF-1 ghi đè. Email kết quả để Phase 4. |
 | D34 | 2026-11-07 | Quản lý job / tiêu chí / danh mục cho HR (3.3): job tạo ra luôn là **DRAFT**, mở cần ≥ 1 tiêu chí; trạng thái chuyển **tự do** DRAFT / OPEN / CLOSED (đóng thì link ứng tuyển đã chia sẻ ngừng nhận đơn); sửa job / tiêu chí **được phép kể cả khi đã có đơn, kèm cảnh báo** (kết quả đã chấm giữ nguyên nhờ snapshot, đơn chưa chấm dùng nội dung mới); **job chưa có đơn thì xoá được**, nhóm / level **chỉ ẩn**; mã (code) tự sinh từ tên (bỏ dấu tiếng Việt) và **không đổi** sau khi tạo; tiêu chí đổi thứ tự bằng nút Lên / Xuống. Không cần migration. |
+| D35 | 2026-11-07 | Email kết quả (Phase 4): **Gmail SMTP** (App Password) ngay từ đầu, backend chỉ biết SMTP; lưu **ngôn ngữ lúc nộp** (`applications.locale`) và gửi đúng ngôn ngữ; gửi **ngay khi HR xác nhận**, lỗi thì giữ quyết định + nút Gửi lại; nội dung = lời chào + kết quả + bước tiếp, **không điểm AI / lý do / ghi chú**; người gửi và Reply-To là `trantrieu491@gmail.com`; `MAIL_REDIRECT_TO` để thử không gửi nhầm ứng viên thật; chống gửi trùng bằng cập nhật có điều kiện `result_email_sent_at IS NULL`. |
 
 ---
 

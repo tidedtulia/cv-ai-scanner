@@ -87,6 +87,13 @@ const givenApiRespondsWith = (status: number, body: unknown) => {
   applicationResponse = async () => ({ ok: false, status, json: async () => body });
 };
 
+const thenApiToldLanguage = (step: DefineStepFunction) => {
+  step(/^the API was told the language is "(.*)"$/, (locale: string) => {
+    const [[, init]] = applicationCalls();
+    expect((init.body as FormData).get('locale')).toBe(locale);
+  });
+};
+
 const whenFillAllFields = (step: DefineStepFunction) => {
   step(/^I fill in all fields with a valid CV "(.*)"$/, async (cv: string) => {
     await fillAllFields(makeFile(cv));
@@ -240,9 +247,27 @@ defineFeature(feature, (test) => {
       expect((body.get('cv') as File).name).toBe('cv.pdf');
       expect(body.get('consent')).toBe('true');
     });
+    thenApiToldLanguage(and);
 
     thenSeeLink(and);
     thenSeeLink(and);
+  });
+
+  test('The language of the visitor is sent with the application', ({ given, and, when, then }) => {
+    given('I am on the Submit CV page in Vietnamese', () => {
+      view = render(formUi('vi'));
+    });
+    givenApiRespondsSuccessfully(and);
+    when(/^I fill in all the Vietnamese fields with a valid CV "(.*)"$/, async (cv: string) => {
+      await user.type(field('Họ tên'), VALID_NAME);
+      await user.type(field('Email'), VALID_EMAIL);
+      await user.selectOptions(field('Vị trí'), VALID_POSITION);
+      await user.upload(field('Tải CV') as HTMLInputElement, makeFile(cv));
+      await user.click(field('Tôi đồng ý'));
+    });
+    whenClickButton(and);
+    thenSeeMessage(then);
+    thenApiToldLanguage(and);
   });
 
   test('Show validation error for invalid <field>', ({ given, and, when, then }) => {

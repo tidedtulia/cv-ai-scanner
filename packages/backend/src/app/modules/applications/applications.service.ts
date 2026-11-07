@@ -7,6 +7,7 @@ import {
   ApplicationErrorResponse,
   ApplicationMessageCode,
   isValidEmail,
+  normalizeApplicationLocale,
 } from '@org/shared';
 import { ApplicationsRepository } from './applications.repository';
 import { buildCvFileName } from './cv-file-name';
@@ -18,6 +19,7 @@ export interface SubmitApplicationBody {
   email?: unknown;
   position?: unknown;
   consent?: unknown;
+  locale?: unknown;
 }
 
 /** The part of multer's file object (memory storage) this module uses. */
@@ -56,6 +58,8 @@ export class ApplicationsService {
 
   async submit(body: SubmitApplicationBody, cv?: UploadedCvFile): Promise<{ message: string }> {
     const { fullName, email, positionCode, file } = this.validate(body, cv);
+    // Unknown or missing → default language, never an error (result-email AC-1)
+    const locale = normalizeApplicationLocale(body.locale);
 
     // Before uploading, so a closed position never leaves a file behind in Drive
     const position = await this.applicationsRepo.findOpenPosition(positionCode);
@@ -83,6 +87,7 @@ export class ApplicationsService {
         id: applicationId,
         fullName,
         email,
+        locale,
         positionId: position.id,
         cvFileName: file.originalname.slice(0, APPLICATION_TEXT_MAX_LENGTH),
         cvDriveFileId: stored.fileId,

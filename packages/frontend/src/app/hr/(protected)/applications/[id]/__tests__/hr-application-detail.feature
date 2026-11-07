@@ -44,6 +44,25 @@ Feature: HR application detail (hr-applications AC-13 → AC-15, AC-18)
     Then I see "Kết quả cũ — đang chờ chấm lại"
     And I see the overall score "83.3" with "Nên nhận"
 
+  Scenario Outline: The result email of a decided application (result-email AC-11)
+    Given my browser prefers Vietnamese
+    And the application is "<status>" and <email state>
+    When I open the application "a1" from the list ""
+    Then I see the heading "Email kết quả"
+    And I see "<text>"
+    And the "Gửi lại" button is <shown>
+    And I do not see the decision buttons
+
+    Examples:
+      | status   | email state                                      | text                                       | shown  |
+      | ACCEPTED | its email is not sent                            | Chưa gửi được email                        | shown  |
+      | REJECTED | its email was sent at "2026-11-07T03:30:00.000Z" | Đã gửi lúc 07/11/2026 10:30 (giờ Việt Nam) | hidden |
+
+  Scenario: No result email section before a decision (result-email AC-11)
+    Given the application is "EVALUATED" and its email is not sent
+    When I open the application "a1" from the list ""
+    Then I do not see the heading "Result email"
+
   Scenario: Status history and other applications (AC-15)
     Given my browser prefers Vietnamese
     And the application has a decision by "Lan HR" with the note "Hợp văn hoá" and another application "Frontend Developer"

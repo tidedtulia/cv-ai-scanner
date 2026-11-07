@@ -44,6 +44,19 @@ describe('ApplicationsService', () => {
     storage = module.get(CvStorage);
   });
 
+  it.each([
+    ['en', 'en'],
+    ['vi', 'vi'],
+    [' EN ', 'en'],
+    ['fr', 'vi'],
+    ['', 'vi'],
+    [undefined, 'vi'],
+    [42, 'vi'],
+  ])('submit() stores locale %p as %s and never fails because of it (result-email AC-1)', async (locale, stored) => {
+    await expect(service.submit({ ...body, locale }, pdf())).resolves.toEqual({ message: APPLICATION_MESSAGES.SUBMITTED });
+    expect(repo.create.mock.calls[0][0].locale).toBe(stored);
+  });
+
   it('submit() uploads the CV, then saves the application (AC-1)', async () => {
     await expect(service.submit(body, pdf())).resolves.toEqual({ message: APPLICATION_MESSAGES.SUBMITTED });
 

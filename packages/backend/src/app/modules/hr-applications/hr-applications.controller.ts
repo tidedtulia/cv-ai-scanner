@@ -46,10 +46,21 @@ export class HrApplicationsController {
       .end(content);
   }
 
+  @Get(`${API_ROUTES.HR_APPLICATIONS}/:id/email-preview`)
+  emailPreview(@Param('id', ParseUUIDPipe) id: string, @Query('decision') decision: unknown) {
+    return this.service.emailPreview(id, decision);
+  }
+
   @Post(`${API_ROUTES.HR_APPLICATIONS}/:id/decision`)
   @HttpCode(HttpStatus.OK)
   decide(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentHrUser() me: IHrSessionUser) {
     return this.service.decide(id, body, me.id);
+  }
+
+  @Post(`${API_ROUTES.HR_APPLICATIONS}/:id/resend-email`)
+  @HttpCode(HttpStatus.OK)
+  resendEmail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.resendEmail(id);
   }
 
   @Post(`${API_ROUTES.HR_APPLICATIONS}/:id/re-evaluate`)

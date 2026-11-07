@@ -24,6 +24,7 @@ export interface HrListRow {
   level_name: string;
   overall_score: Prisma.Decimal | number | string | null;
   recommendation: Recommendation | null;
+  result_email_sent_at: Date | null;
 }
 
 const FROM = Prisma.sql`
@@ -66,7 +67,7 @@ export class HrApplicationsRepository {
     return this.prisma.$queryRaw<HrListRow[]>`
       SELECT a.id, a.full_name, a.email, a.status::text AS status, a.created_at,
              p.code AS position_code, p.title AS position_title, c.name AS category_name, l.name AS level_name,
-             e.overall_score, e.recommendation::text AS recommendation
+             e.overall_score, e.recommendation::text AS recommendation, a.result_email_sent_at
       ${FROM}
       ${whereClause(filters, statuses)}
       ${ORDER_BY[sort]}
@@ -101,6 +102,8 @@ export class HrApplicationsRepository {
         status: true,
         createdAt: true,
         cvFileName: true,
+        locale: true,
+        resultEmailSentAt: true,
         position: {
           select: {
             code: true,
@@ -145,6 +148,31 @@ export class HrApplicationsRepository {
 
   findCvFile(id: string) {
     return this.prisma.application.findUnique({ where: { id }, select: { cvDriveFileId: true, cvFileName: true } });
+  }
+
+  /** What the result email needs (result-email AC-3 → AC-5) */
+  findEmailData(id: string) {
+    return this.prisma.application.findUnique({
+      where: { id },
+      select: { fullName: true, email: true, locale: true, status: true, resultEmailSentAt: true, position: { select: { title: true } } },
+    });
+  }
+
+  /**
+   * Claims the right to send the result email: sets result_email_sent_at only if it is still NULL and the application is
+   * decided, so that two concurrent sends (or a double click) produce one email (AC-5). Returns whether this call won.
+   */
+  async claimEmailSend(id: string, decided: readonly ApplicationStatus[]): Promise<boolean> {
+    const { count } = await this.prisma.application.updateMany({
+      where: { id, resultEmailSentAt: null, status: { in: [...decided] } },
+      data: { resultEmailSentAt: new Date() },
+    });
+    return count === 1;
+  }
+
+  /** Gives the claim back after a failed send, so that "Gửi lại" works (AC-4, AC-5) */
+  async releaseEmailSend(id: string): Promise<void> {
+    await this.prisma.application.updateMany({ where: { id }, data: { resultEmailSentAt: null } });
   }
 
   /**

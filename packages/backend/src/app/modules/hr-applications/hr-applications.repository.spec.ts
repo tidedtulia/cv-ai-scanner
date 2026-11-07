@@ -90,5 +90,40 @@ describe('HrApplicationsRepository (hr-applications AC-1, AC-2, AC-6, AC-7)', ()
         expect(tx.applicationStatusHistory.create).not.toHaveBeenCalled();
       });
     });
+
+    describe('result email (result-email AC-4, AC-5)', () => {
+      const application = { findUnique: jest.fn(), updateMany: jest.fn() };
+      let emailRepo: HrApplicationsRepository;
+      beforeEach(() => {
+        application.findUnique.mockReset();
+        application.updateMany.mockReset();
+        emailRepo = new HrApplicationsRepository({ application } as unknown as PrismaService);
+      });
+
+      it('claimEmailSend sets result_email_sent_at only while it is NULL and the application is decided; true only for the winner', async () => {
+        application.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+        await expect(emailRepo.claimEmailSend('app-1', ['ACCEPTED', 'REJECTED'])).resolves.toBe(true);
+        await expect(emailRepo.claimEmailSend('app-1', ['ACCEPTED', 'REJECTED'])).resolves.toBe(false);
+        expect(application.updateMany).toHaveBeenCalledWith({
+          where: { id: 'app-1', resultEmailSentAt: null, status: { in: ['ACCEPTED', 'REJECTED'] } },
+          data: { resultEmailSentAt: expect.any(Date) },
+        });
+      });
+
+      it('releaseEmailSend puts NULL back', async () => {
+        application.updateMany.mockResolvedValueOnce({ count: 1 });
+        await emailRepo.releaseEmailSend('app-1');
+        expect(application.updateMany).toHaveBeenCalledWith({ where: { id: 'app-1' }, data: { resultEmailSentAt: null } });
+      });
+
+      it('findEmailData reads only what the email needs (name, address, language, status, sent time, job title)', async () => {
+        application.findUnique.mockResolvedValueOnce(null);
+        await emailRepo.findEmailData('app-1');
+        expect(application.findUnique).toHaveBeenCalledWith({
+          where: { id: 'app-1' },
+          select: { fullName: true, email: true, locale: true, status: true, resultEmailSentAt: true, position: { select: { title: true } } },
+        });
+      });
+    });
   });
 });

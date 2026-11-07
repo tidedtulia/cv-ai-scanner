@@ -22,6 +22,7 @@
     "db:backup": "sh scripts/db/db-backup.sh",
     "db:upgrade": "sh scripts/db/db-upgrade.sh",
     "mcp:check": "node scripts/mcp/mcp-check.mjs",
+    "mail:check": "node --env-file=.env scripts/mail/mail-check.mjs",
     "wf1:test": "node --test n8n/wf1/*.test.cjs",
     "wf1:check": "node scripts/wf1/wf1-check.mjs"
   },
@@ -50,6 +51,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
     "@types/node": "20.19.9",
+    "@types/nodemailer": "^7.0.12",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "10.4.13",
@@ -91,6 +93,7 @@
     "axios": "^1.6.0",
     "dotenv": "^17.4.2",
     "next": "~16.1.6",
+    "nodemailer": "^7.0.13",
     "pg": "^8.20.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

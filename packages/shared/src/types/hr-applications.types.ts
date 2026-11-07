@@ -1,3 +1,4 @@
+import type { ApplicationLocale } from '../constants/application.constants.js';
 import type { CriterionType } from './position.types.js';
 
 /** Mirrors the `application_status` enum */
@@ -41,6 +42,8 @@ export interface IHrApplicationListItem {
   position: IHrPositionRef;
   overallScore: number | null;
   recommendation: Recommendation | null;
+  /** Decided (ACCEPTED / REJECTED) but the result email is not sent yet (result-email AC-7) */
+  emailPending: boolean;
 }
 
 export interface IHrApplicationListResponse {
@@ -118,6 +121,26 @@ export interface IHrApplicationDetail {
   otherApplications: { id: string; positionTitle: string; status: ApplicationStatus; createdAt: string; overallScore: number | null }[];
   canDecide: boolean;
   canReEvaluate: boolean;
+  /** Language the candidate applied in; the result email is written in it */
+  locale: ApplicationLocale;
+  /** ISO date the result email was sent; null = not sent (yet) */
+  resultEmailSentAt: string | null;
+  canResendEmail: boolean;
+}
+
+/** Response of POST .../decision and POST .../resend-email: the detail + whether the email went out (result-email AC-4, AC-5) */
+export interface IHrDecisionResponse extends IHrApplicationDetail {
+  emailSent: boolean;
+}
+
+/** GET /api/hr/applications/:id/email-preview?decision= (result-email AC-3) */
+export interface IHrEmailPreview {
+  locale: ApplicationLocale;
+  /** The candidate's address, even when MAIL_REDIRECT_TO diverts the real mail */
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
 }
 
 /** Body of POST /api/hr/applications/:id/decision */

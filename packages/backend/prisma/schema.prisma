@@ -156,6 +156,8 @@ model Application {
   cvDriveFileId     String            @map("cv_drive_file_id") @db.VarChar(128)
   cvDriveUrl        String            @map("cv_drive_url")
   status            ApplicationStatus @default(SUBMITTED)
+  /// Language the candidate applied in ('vi' | 'en', check constraint); the result email is sent in it
+  locale            String            @default("vi") @db.VarChar(5)
   /// Set by the backend once the result email is sent
   resultEmailSentAt DateTime?         @map("result_email_sent_at") @db.Timestamptz(3)
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
