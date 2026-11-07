@@ -212,7 +212,8 @@ Rồi chuyển `DATABASE_URL` / `DB_POSTGRESDB_HOST` sang server mới (tạo l�
 ### 6.7 Dừng để tiết kiệm, và xoá
 
 ```bash
-# ngủ đông: n8n về 0 (lịch 00:00 KHÔNG chạy), PostgreSQL dừng (tự bật lại sau 7 ngày)
+# ngủ đông: n8n về 0 (lịch 00:00 KHÔNG chạy), PostgreSQL dừng (tự bật lại sau 7 ngày).
+# Lưu ý: dừng chỉ ngừng tiền máy (compute); tiền ổ đĩa và backup vẫn tính. Muốn hết hẳn thì xoá (phía dưới)
 az containerapp update -g $RG -n $PREFIX-n8n --min-replicas 0
 az postgres flexible-server stop -g $RG -n <tên server>
 # bật lại
@@ -252,6 +253,8 @@ Lần deploy Bicep kế tiếp sẽ đặt lại `min-replicas`; muốn giữ tr
 | Azure Container Registry Basic | ~5 USD | |
 | Log Analytics | ~0–3 USD | trần 0,5 GB/ngày (`logDailyCapGb`), lưu 30 ngày |
 | **Tổng** | **~35–55 USD** | |
+
+**Ưu đãi miễn phí cho PostgreSQL (nếu đủ điều kiện).** Tài khoản Azure Free (tạo trong vòng 12 tháng, kể cả đã nâng cấp lên Pay-as-you-go) được 750 giờ/tháng PostgreSQL Flexible Server cỡ B1ms + 32 GB ổ đĩa trong 12 tháng đầu kể từ **ngày tạo tài khoản**; mặc định của Bicep (`Standard_B1ms`, 32 GB) khớp đúng mức này. Khi đó tổng giảm còn khoảng **15–25 USD/tháng**. Tài khoản đăng ký thẳng Pay-as-you-go **không có** ưu đãi này. Cách biết: Azure Portal → **Cost Management + Billing → Free services** (hiện dịch vụ nào còn miễn phí và còn bao nhiêu giờ), rồi theo dõi hóa đơn ở **Cost analysis** sau vài ngày đầu. Ưu đãi được áp dụng theo giờ sử dụng, Bicep không có ô "chọn ưu đãi". Credit 200 USD của Free Account chỉ có 30 ngày; sau đó phải nâng cấp lên Pay-as-you-go thì dịch vụ mới tiếp tục chạy.
 
 Núm vặn (đều là tham số Bicep): `postgresSku` / `postgresStorageGb`, `frontendMinReplicas` / `backendMinReplicas` (0 = rẻ nhưng có cold start), `logRetentionDays` / `logDailyCapGb`, và dừng/ngủ đông (6.7). Đặt **Budget** có cảnh báo: Azure Portal → Cost Management → Budgets.
 
