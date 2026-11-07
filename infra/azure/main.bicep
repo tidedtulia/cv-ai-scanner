@@ -80,6 +80,8 @@ param seedHrName string = 'HR Admin'
 
 // ---------------------------------------------------------------- secrets
 @secure()
+@minLength(8)
+@maxLength(128)
 @description('Azure requires 8-128 characters with at least 3 of: upper case, lower case, digit, symbol (plain hex has only 2 kinds). It is URL-encoded in the connection string, so any of them is fine.')
 param postgresAdminPassword string
 @secure()

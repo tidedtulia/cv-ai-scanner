@@ -30,7 +30,8 @@ param n8nOwnerEmail = ''
 param seedHrEmail = ''
 
 // secrets: from the environment, never from this file
-param postgresAdminPassword = readEnvironmentVariable('POSTGRES_ADMIN_PASSWORD', '')
+// no default on purpose: without the variable, az stops here with "environment variable not set" instead of Azure failing half way
+param postgresAdminPassword = readEnvironmentVariable('POSTGRES_ADMIN_PASSWORD')
 param jwtSecret = readEnvironmentVariable('JWT_SECRET', '')
 param n8nDbPassword = readEnvironmentVariable('N8N_DB_PASSWORD', '')
 param n8nAppDbPassword = readEnvironmentVariable('N8N_APP_DB_PASSWORD', '')

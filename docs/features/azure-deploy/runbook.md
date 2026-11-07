@@ -99,6 +99,18 @@ export MY_IP=$(curl -s https://api.ipify.org); echo $MY_IP
 
 Đặt `adminIp = '<MY_IP>'` (để chạy bước 3 từ máy bạn) và `n8nAllowedCidr = ['<MY_IP>/32']` (để mở editor n8n); để `n8nAllowedCidr = []` nếu chưa cần.
 
+### 1.6 Kiểm tra các biến bí mật đã được đặt (trước mỗi lần `az deployment`)
+
+`az deployment group validate` **không** phát hiện biến rỗng: Azure chỉ báo lỗi giữa chừng khi tạo tài nguyên (ví dụ `Parameter 'AdministratorLoginPassword' must be specified`). Kiểm tra trước, trong **đúng cửa sổ terminal** sẽ chạy `az` (biến không dùng chung giữa các cửa sổ):
+
+```bash
+for v in POSTGRES_ADMIN_PASSWORD JWT_SECRET N8N_DB_PASSWORD N8N_APP_DB_PASSWORD MCP_DB_PASSWORD MCP_AUTH_TOKEN N8N_ENCRYPTION_KEY N8N_OWNER_PASSWORD ANTHROPIC_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_REFRESH_TOKEN SMTP_PASSWORD SEED_HR_PASSWORD; do
+  [ -n "$(printenv $v)" ] && echo "ok       $v" || echo "THIẾU    $v"
+done
+```
+
+Pha 1 chỉ cần `POSTGRES_ADMIN_PASSWORD`; pha 2 cần cả 14 biến (Container Apps không nhận secret rỗng).
+
 ## 2. Pha 1: dựng hạ tầng
 
 ```bash
@@ -261,6 +273,7 @@ Mặc định n8n **không chạy cả ngày**: chỉ có replica từ `n8nWindo
 | `docker pull` hoặc app báo `denied` / `unauthorized` / `manifest unknown` khi kéo image | Gói trên `ghcr.io` còn *private* hoặc sai tag: đổi sang **Public** (bước 3.1), kiểm tra `IMAGE_TAG` và `imageRegistry` (chữ thường) |
 | Workflow *Build images* dừng ở bước Scan | Image có `.env` hoặc chuỗi giống khoá bí mật — **không** đẩy. Xem tên file trong log, loại ra khỏi image (`.dockerignore` / Dockerfile) rồi chạy lại |
 | Sáng ra đơn chưa được chấm, n8n không có log đêm qua | n8n chưa lên kịp lúc 00:00 hoặc rule cron không hoạt động: dịch `n8nWindowStart` sớm hơn, hoặc `n8nAlwaysOn = true` (mục 6.8) |
+| `az deployment` báo `Parameter 'AdministratorLoginPassword' must be specified` (hoặc secret rỗng) | Biến bí mật rỗng trong cửa sổ terminal này (mở cửa sổ mới, hoặc quên `export`): nạp lại (mục 1.4) và kiểm tra bằng mục 1.6, rồi chạy lại lệnh; chạy lại được vì Bicep idempotent |
 | Bước 3.3 báo thiếu quyền / `must be able to SET ROLE` | Admin của Azure thiếu `CREATEROLE`: kiểm tra `az postgres flexible-server show`; script đã `GRANT n8n TO <admin> WITH SET TRUE, INHERIT TRUE`; gửi nguyên văn lỗi để xử lý |
 | `psql: could not connect` / timeout | IP chưa nằm trong `adminIp` (IP đổi theo nhà mạng) → cập nhật và deploy lại |
 | n8n không sẵn sàng, log nêu `self-signed certificate` / `unable to verify` | Đặt `verifyDatabaseCertificate = false` (chỉ khi bắt buộc), deploy lại |
