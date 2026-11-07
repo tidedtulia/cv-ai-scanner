@@ -14,7 +14,7 @@ Dành cho người chưa từng dùng Azure. Mỗi bước là lệnh chép ch�
 | Azure CLI (`az`), Docker Desktop đang chạy, `openssl` | `az --version`, `docker version` |
 | Quyền **Contributor** trên resource group (không còn role assignment: image public, không có ACR) | Subscription → Access control (IAM) |
 | Quyền chạy **GitHub Actions** và đổi gói sang Public trên repo `tidedtulia/cv-ai-scanner` | GitHub → Actions đã bật |
-| Ứng dụng Google OAuth đã **xuất bản (Production)** | bước 1.3 |
+| Ứng dụng Google OAuth chuyển sang **Production** (cần URL của frontend nên làm **sau** khi triển khai) | bước 1.3 và 5.6 |
 | Gmail App Password | đã dùng khi dev (`SMTP_PASSWORD`) |
 
 Chi phí khoảng **0–5 USD/tháng** trong 12 tháng ưu đãi PostgreSQL và **17–35 USD/tháng** sau đó (xem [mục 8](#8-chi-phí-và-núm-vặn); ước tính chưa đo); dừng được khi không dùng (mục 6.7).
@@ -42,11 +42,13 @@ export RG=cvs-rg PREFIX=cvs LOCATION=southeastasia
 
 `PREFIX` phải trùng `namePrefix` trong file tham số (mặc định `cvs`); tên app là `cvs-frontend`, `cvs-backend`, `cvs-n8n`.
 
-### 1.3 Google OAuth: xuất bản ứng dụng (bắt buộc)
+### 1.3 Google OAuth: chuẩn bị (xuất bản làm ở bước 5.6)
 
-Khi ứng dụng OAuth còn ở chế độ **Testing**, refresh token **hết hạn sau 7 ngày** → CV upload và n8n tải CV sẽ ngừng chạy một tuần sau khi deploy.
-1. Google Cloud Console → **APIs & Services → OAuth consent screen** → **Publish app** (chuyển sang *In production*). Scope `drive.file` không cần Google xét duyệt.
-2. Lấy lại refresh token bằng `cd packages/backend && npm run drive:auth` (làm theo hướng dẫn trong `docs/features/submit-application-api/google-drive-setup.md`) và dùng giá trị mới ở bước 1.4.
+Khi ứng dụng OAuth còn ở chế độ **Testing**, refresh token **hết hạn sau 7 ngày** → CV upload và n8n tải CV sẽ ngừng chạy. Phải chuyển sang **In production**, nhưng Google **bắt buộc** có *Application home page* và *Application privacy policy link* thì nút **Publish app** mới bấm được (tooltip: "Valid app name, support email, homepage url, and privacy policy url are required for switching the app to external production mode"). Bạn chưa có hai URL đó trước khi triển khai, và frontend đã có sẵn cả hai: trang chủ `/` và chính sách `/privacy`. Vì vậy:
+
+1. **Bây giờ:** Google Cloud Console → **Google Auth Platform → Branding**: điền App name, User support email, Developer contact email (**không** tải logo, vì logo buộc phải xác minh). Để trống phần App domain.
+2. **Triển khai với refresh token hiện có** (còn hạn trong 7 ngày kể từ lúc cấp: chạy `npm run drive:auth` ngay trước khi bắt đầu bước 1.4 để token mới). Phải xong bước 5 trong vòng 7 ngày.
+3. **Sau khi có URL frontend:** xuất bản ở **bước 5.6**, rồi cập nhật token mới vào secrets.
 
 ### 1.4 Tạo bí mật
 
@@ -166,6 +168,12 @@ Rồi làm bằng tay:
 3. n8n: mở `$N8N_URL` (chỉ IP trong `n8nAllowedCidr` vào được), đăng nhập `n8nOwnerEmail` / `N8N_OWNER_PASSWORD`; kiểm tra workflow **CV Scanner WF-1** và **MCP server** đang *Active*; bấm chạy tay WF-1 để chấm đơn thử, rồi xem kết quả ở `/hr`.
 4. Email: trên máy bạn, `SMTP_*` / `MAIL_FROM` đặt trong `.env`, chạy `npm run mail:check <email của bạn>`; rồi chốt Nhận/Từ chối một đơn thử **của chính bạn** (email thật gửi tới địa chỉ ứng viên đã nhập — dùng email của bạn khi nộp).
 5. Log nếu có lỗi: mục [6.2](#62-xem-log).
+6. **Xuất bản ứng dụng Google OAuth (bắt buộc, làm trong vòng 7 ngày kể từ lúc cấp refresh token):**
+   1. Google Cloud Console → **Google Auth Platform → Branding → App domain**: *Application home page* = `$FRONTEND_URL/`, *Application privacy policy link* = `$FRONTEND_URL/privacy`. Mục **Authorized domains → Add domain**: tên miền của `$FRONTEND_URL` (ví dụ `cvs-frontend.<mã>.southeastasia.azurecontainerapps.io`). Bấm **Save**. Nếu Google từ chối tên miền này (tên miền dùng chung của Azure), dùng tên miền riêng của bạn (mục 9) hoặc một trang tĩnh trên tên miền bạn kiểm soát có nội dung chính sách riêng tư.
+   2. **Audience → Publish app → Confirm** (trạng thái thành *In production*). Scope `drive.file` không cần Google xét duyệt.
+   3. Lấy refresh token mới: `cd packages/backend && npm run drive:auth` (hướng dẫn: `docs/features/submit-application-api/google-drive-setup.md`; nếu Google báo "chưa xác minh ứng dụng" thì **Advanced → Go to … (unsafe)**, đây là ứng dụng của bạn).
+   4. Cập nhật vào Azure: đặt lại `GOOGLE_REFRESH_TOKEN` rồi chạy lại mục 4, hoặc Portal → `cvs-backend` và `cvs-n8n` → **Secrets** → `google-refresh-token` → sửa → **Save**; sau đó tạo revision mới cho `cvs-backend` (**Revisions → Create new revision**, hoặc Restart); n8n lấy giá trị mới ở lần khởi động kế tiếp (khung giờ tối nay).
+   5. Kiểm tra: nộp một CV thử ở `$FRONTEND_URL/submit-cv`, đơn phải xuất hiện ở `/hr` và CV tải về được.
 
 ## 6. Vận hành
 
@@ -250,7 +258,8 @@ Mặc định n8n **không chạy cả ngày**: chỉ có replica từ `n8nWindo
 | `/api/*` luôn 404 qua frontend | `BACKEND_URL` lúc **build** frontend sai → build lại với đúng `http://<PREFIX>-backend` |
 | Đăng nhập HR bị khoá vì nhiều lần sai | Bộ đếm nằm trong bộ nhớ backend: khởi động lại backend (`az containerapp revision restart`) hoặc đợi 15 phút |
 | Email vào thư rác | Gmail cá nhân không có SPF/DKIM theo tên miền của bạn; xem rủi ro bên dưới |
-| Refresh token Google hết hạn sau 7 ngày | Chưa xuất bản OAuth (bước 1.3) |
+| Refresh token Google hết hạn sau 7 ngày | Chưa xuất bản OAuth (bước 5.6) |
+| Nút **Publish app** của Google bị mờ | Thiếu *Application home page* hoặc *privacy policy link* trong Branding (bước 5.6); chỉ điền được khi đã có URL frontend |
 
 ## 8. Chi phí và núm vặn
 
