@@ -11,8 +11,14 @@
     "build": "nx run-many -t build --all",
     "test": "nx run-many -t test --all",
     "db:up": "docker compose -f docker-compose.dev.yml up -d",
-    "db:down": "docker compose -f docker-compose.dev.yml down",
-    "db:logs": "docker compose -f docker-compose.dev.yml logs -f db"
+    "db:down": "docker compose -f docker-compose.dev.yml --profile n8n down",
+    "db:logs": "docker compose -f docker-compose.dev.yml logs -f db",
+    "n8n:up": "docker compose -f docker-compose.dev.yml --profile n8n up -d --wait n8n",
+    "n8n:down": "docker compose -f docker-compose.dev.yml --profile n8n stop n8n",
+    "n8n:logs": "docker compose -f docker-compose.dev.yml --profile n8n logs -f n8n-init n8n",
+    "n8n:export": "sh n8n/setup/workflows.sh export",
+    "n8n:import": "sh n8n/setup/workflows.sh import",
+    "n8n:check": "sh n8n/setup/check.sh"
   },
   "private": true,
   "devDependencies": {

@@ -532,6 +532,10 @@ FROM app;
 n8n và MCP server mỗi bên dùng 1 role riêng, chỉ có đúng các quyền cần thiết:
 
 ```sql
+-- Dữ liệu nội bộ của n8n (workflow, credential, execution): database riêng
+CREATE ROLE n8n LOGIN PASSWORD '***';
+CREATE DATABASE n8n OWNER n8n;
+
 -- WF-1 của n8n
 CREATE ROLE n8n_app LOGIN PASSWORD '***';
 GRANT SELECT ON job_levels, position_criteria, applications TO n8n_app;
@@ -546,8 +550,14 @@ GRANT SELECT ON job_categories, job_levels, positions, position_criteria TO mcp_
 
 - `mcp_readonly` **không** có quyền đọc `applications` / `evaluations`. Nhờ vậy, kể cả khi CV chứa prompt injection, Claude cũng không lấy được dữ liệu của ứng viên khác.
 - Nếu MCP server chạy trong n8n, workflow MCP dùng 1 Postgres credential riêng với role `mcp_readonly` (không dùng chung credential với WF-1).
-- Đặt các lệnh `GRANT` trong 1 file Prisma migration (SQL thuần), vì bảng mới tạo sau này không tự động được cấp quyền.
-- n8n lưu dữ liệu nội bộ của nó (workflow, credentials, execution log) trong **database riêng** (vd `n8n`, cấu hình `DB_TYPE=postgresdb`, `DB_POSTGRESDB_DATABASE=n8n`) trên cùng Postgres server, không dùng chung database của ứng dụng. Nếu dùng chung, `prisma migrate dev` sẽ coi các bảng của n8n là "drift" (lệch schema) và đề nghị reset DB.
+- **Các lệnh tạo role và `GRANT` nằm trong script setup `n8n/setup/init-db.sh`, không nằm trong Prisma migration (D26):**
+  - Script chạy tự động mỗi lần `npm run n8n:up` và chạy lại bao nhiêu lần cũng được. Mật khẩu lấy từ `.env`.
+  - Script thu hồi hết quyền cũ rồi cấp lại đúng danh sách trên, nên DB luôn khớp với script.
+  - Bảng mới tạo sau này không tự được cấp quyền. Khi một migration thêm bảng mà n8n hoặc MCP cần dùng, phải thêm `GRANT` vào script này.
+  - Người không dùng n8n vẫn chạy `prisma migrate` bình thường.
+  - Chi tiết: [features/n8n-docker-setup](./features/n8n-docker-setup/requirements.md).
+- `REVOKE CONNECT ON DATABASE … FROM PUBLIC` cho cả 2 database, rồi chỉ cấp `CONNECT` cho đúng role. Lý do: Postgres mặc định cho mọi role kết nối vào mọi database.
+- n8n lưu dữ liệu nội bộ của nó (workflow, credentials, execution log) trong **database riêng `n8n`**, thuộc role riêng `n8n` (`DB_TYPE=postgresdb`, `DB_POSTGRESDB_DATABASE=n8n`), trên cùng Postgres server. Không dùng chung database của ứng dụng: nếu dùng chung, `prisma migrate dev` sẽ coi các bảng của n8n là "drift" (lệch schema) và đề nghị reset DB.
 
 ---
 

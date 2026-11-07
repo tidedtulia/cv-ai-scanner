@@ -337,11 +337,15 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 - [x] 1.4 Frontend: trang chủ, `/jobs`, `/submit-cv` gọi API thật (chọn sẵn `?position=`, JD + tiêu chí, **chỉ PDF**, đồng ý xử lý dữ liệu), `/privacy`; song ngữ vi / en — [features/fe-public-pages](./features/fe-public-pages/)
 
 **Phase 2 — Đánh giá CV (n8n + MCP + Claude)**
-- [ ] Thêm n8n vào Docker Compose: database riêng `n8n`, `GENERIC_TIMEZONE=Asia/Ho_Chi_Minh`, `N8N_ENCRYPTION_KEY` cố định; tạo DB role `n8n_app`, `mcp_readonly`
+- [x] 2.1 Thêm n8n vào Docker Compose — [features/n8n-docker-setup](./features/n8n-docker-setup/):
+  - database riêng `n8n`, `GENERIC_TIMEZONE=Asia/Ho_Chi_Minh`, `N8N_ENCRYPTION_KEY` cố định;
+  - DB role `n8n_app`, `mcp_readonly`;
+  - owner và 2 Postgres credential tạo từ `.env`;
+  - lệnh export / import workflow, smoke-check.
 - [ ] PoC: AI Agent + file PDF + MCP Client Tool (chọn phương án nếu AI Agent không nhận PDF)
 - [ ] Workflow MCP server: tool `get_position_requirements`
 - [ ] WF-1 + prompt v1; thử với bộ CV mẫu (tốt / trung bình / không phù hợp / CV scan / CV có prompt injection)
-- [ ] Export workflow n8n ra file JSON trong repo
+- [ ] Export các workflow (MCP, WF-1) ra `n8n/workflows/` bằng `npm run n8n:export`
 
 **Phase 3 — Trang HR**
 - [ ] Auth HR (login, JWT guard)
@@ -392,6 +396,10 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D22 | 2026-11-07 | Frontend gọi backend qua **Next.js rewrites** (`/api/*` → `BACKEND_URL`), không bật CORS. |
 | D23 | 2026-11-07 | JD markdown hiển thị bằng **react-markdown**. |
 | D24 | 2026-11-07 | `/privacy`: email nhận yêu cầu về dữ liệu `trantrieu491@gmail.com`; lưu CV **12 tháng** kể từ khi nộp, sau đó xoá. |
+| D25 | 2026-11-07 | n8n local chạy trong `docker-compose.dev.yml` (profile `n8n`, image cố định `n8nio/n8n:2.46.6`). Bật bằng `npm run n8n:up`; container `n8n-init` setup tự động và idempotent. |
+| D26 | 2026-11-07 | Role `n8n` / `n8n_app` / `mcp_readonly` và các `GRANT` nằm trong script setup `n8n/setup/init-db.sh`, **không** nằm trong Prisma migration. |
+| D27 | 2026-11-07 | Owner n8n và 2 Postgres credential (`n8n_app`, `mcp_readonly`, id cố định) được tạo từ `.env`. Workflow export / import qua `n8n/workflows/`. |
+| D28 | 2026-11-07 | Feature hạ tầng (không có code FE / BE) được kiểm chứng bằng script smoke-check thay cho cucumber / unit test. |
 
 ---
 
@@ -406,3 +414,4 @@ Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏ
 | Q7 | **Dữ liệu cá nhân:** checkbox đồng ý (D21), email + thời hạn 12 tháng (D24) đã chốt. Còn lại: `/privacy` cam kết xoá sau 12 tháng → **tự động xoá CV (Drive) + đơn (DB) bằng job định kỳ**, hay HR xoá tay? | Job định kỳ (vd chạy cùng n8n hoặc cron của backend) — làm sau MVP, trước khi chạy thật đủ 12 tháng. |
 | Q11 | **HR xem CV bằng cách nào?** Mở link Drive (HR cần quyền vào thư mục), hay backend proxy file để nhúng trình xem PDF ngay trong trang HR? | Mở link Drive cho MVP. |
 | Q12 | **Dịch vụ Azure cụ thể** khi triển khai (Container Apps hay App Service; PostgreSQL Flexible Server; Key Vault). Chưa cần chốt ngay. | Container Apps cho cả backend, frontend, n8n (cùng 1 cách deploy bằng container) + PostgreSQL Flexible Server — chốt ở Phase 5. |
+| Q13 | **Nâng Postgres 16 → 17?** n8n 2.46 cảnh báo Postgres 16 "outside the supported range" (chỉ còn hỗ trợ tương thích), dù hiện vẫn chạy đúng mọi AC ([n8n-docker-setup](./features/n8n-docker-setup/requirements.md#phát-hiện-khi-chạy-thật)). | Dev: đổi image sang `postgres:17-alpine` với volume mới (dữ liệu dev → migrate + seed lại), làm thành 1 feature nhỏ riêng trước WF-1. Azure: chọn PostgreSQL 17 ở Phase 5. |

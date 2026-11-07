@@ -41,6 +41,13 @@ cd packages/backend && npx prisma migrate dev --name <migration_name>
 
 # Prisma — seed categories, levels, sample positions, first HR account (idempotent)
 cd packages/backend && npx prisma db seed
+
+# n8n (Docker, profile "n8n"; needs the N8N_* / *_DB_PASSWORD vars in .env)
+npm run n8n:up        # db + n8n-init (database n8n, roles, grants) + n8n on http://localhost:5678
+npm run n8n:check     # smoke-check: roles / grants / owner / credentials / timezone (read-only)
+npm run n8n:export    # workflows → n8n/workflows/*.json (commit them); n8n:import does the reverse
+npm run n8n:logs
+npm run n8n:down      # stop n8n only; `npm run db:down` stops everything (data kept)
 ```
 
 ## Environment Setup
@@ -53,7 +60,13 @@ cd packages/backend && npx prisma db seed
 - Frontend: the browser calls `/api/*` on the Next.js origin, rewritten to `BACKEND_URL` (default `http://localhost:3001`, see `packages/frontend/next.config.js`). Public pages are bilingual: UI texts live in `packages/frontend/src/i18n/dictionaries/{en,vi}.ts` (same shape, checked by a test).
 - Prisma config lives in `packages/backend/prisma.config.ts`; migrations in `packages/backend/prisma/migrations/` are committed. Database design: `docs/database.md`.
 
-The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node.
+The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node. In dev, n8n (`n8nio/n8n:2.46.6`) also runs in Docker under the compose profile `n8n`, so `npm run db:up` stays Postgres-only.
+
+- n8n setup lives in `n8n/setup/`:
+  - `init-db.sh`: database `n8n`, roles `n8n` / `n8n_app` / `mcp_readonly` and **all their GRANTs**. These are not in Prisma migrations. When a migration adds a table that n8n or MCP needs, add its GRANT to `init-db.sh` and to the expected sets in `check-db.sh`.
+  - `entrypoint.sh`: owner from `.env`, plus the 2 Postgres credentials with fixed ids `cvScannerN8nApp` / `cvScannerMcpRead`.
+  - Details: `docs/features/n8n-docker-setup/`.
+- Docker Compose reads `.env` differently from dotenv / `node --env-file`: `#` only starts a comment after a space, and `$` is interpolated. Single-quote values that contain `#`, `$` or spaces.
 
 ## Feature workflow (scenario-first)
 
@@ -66,6 +79,7 @@ Every feature has its own branch (`feature/<name>`) and folder `docs/features/<n
    - Frontend: Gherkin `.feature` + `*.steps.spec.tsx` (jest-cucumber, Testing Library) next to the page or component under `__tests__/`, plus unit tests. Shared mocks and fixtures live in `packages/frontend/src/test-utils/`. Async Server Components are rendered with `renderPage()`.
    - Backend: Jest unit tests (`*.spec.ts`). When a behaviour lives in Nest or multer config (limits, filters, pipes), use an HTTP spec with a real Nest app (`app.listen(0)` + `fetch`) and the services mocked.
    - Only what needs a real environment (proxy, Google Drive) is verified by hand, and recorded in `tasks.md`.
+   - Infra features with no FE / BE code (e.g. `n8n-docker-setup`): a smoke-check script that verifies each AC on the real environment (`npm run n8n:check`), plus manual checks recorded in `tasks.md`.
 
 ## Architecture
 
@@ -77,7 +91,7 @@ Every feature has its own branch (`feature/<name>`) and folder `docs/features/<n
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cv-ai-scanner** (1005 symbols, 1767 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cv-ai-scanner** (1070 symbols, 1839 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
