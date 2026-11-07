@@ -10,15 +10,15 @@ Feature: The HR area needs a session (hr-auth AC-11 → AC-13)
       | expired                   | /hr/login?next=%2Fhr%2Fapplications%3Fstatus%3DEVALUATED&reason=expired  |
       | for a deactivated account | /hr/login?next=%2Fhr%2Fapplications%3Fstatus%3DEVALUATED                 |
 
-  Scenario: The HR home page (AC-12)
+  Scenario: The HR frame around a page (AC-12)
     Given my browser prefers Vietnamese
     And I am signed in as "Lan Nguyen"
     When I open the HR page "/hr"
     Then the header shows "CV AI Scanner" with the badge "HR"
     And the header shows "Đang đăng nhập: Lan Nguyen", a "Đăng xuất" button and the language switch
     And the public navigation and footer are not shown
-    And I see the heading "Xin chào, Lan Nguyen"
-    And the tab title is "HR · CV AI Scanner"
+    And I see the page content "PAGE BODY"
+    And the tab title of the applications page is "Đơn ứng tuyển · CV AI Scanner"
     And search engines are told not to index the HR area
 
   Scenario: Sign out (AC-12)

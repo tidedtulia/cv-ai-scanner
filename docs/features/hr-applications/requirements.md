@@ -275,3 +275,15 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): Gherkin + unit cho fr
 - Cập nhật trạng thái dùng `UPDATE … WHERE id = $1 AND status IN ('EVALUATED','EVALUATION_FAILED')`: n8n ([WF-1](../n8n-evaluate-cv-workflow/requirements.md)) cũng chỉ đổi trạng thái khi đơn còn `EVALUATING`, nên HR và n8n không ghi đè lẫn nhau.
 - Lấy file từ Drive: `GET https://www.googleapis.com/drive/v3/files/{id}?alt=media` bằng OAuth sẵn có của backend (scope `drive.file`).
 - Trình xem PDF dùng `<iframe>` trỏ tới `/api/hr/applications/:id/cv` (cùng origin nên cookie phiên được gửi kèm).
+
+### Phát hiện khi làm
+
+- **Danh sách dùng SQL thô (`$queryRaw` có tham số)** vì Prisma không sắp xếp `điểm DESC` với đơn chưa có điểm ở cuối; mọi bộ lọc là tham số, ký tự `%` / `_` trong ô tìm kiếm được coi là chữ thường (đã kiểm: tìm "%" không khớp tất cả).
+- **Số đơn của tab** lấy bằng một truy vấn `GROUP BY status` với cùng bộ lọc rồi cộng theo tab; `total` của danh sách chính là số đơn của tab đang chọn.
+- **Lỗi 409 có thêm `currentStatus`** (trạng thái hiện tại của đơn) để giao diện báo đúng; `api-error.ts` cho phép thêm field phụ.
+- **`/hr` (trang danh sách) thay lời chào của 3.1**: bỏ nhóm chữ `hr.home`; test khung HR kiểm layout với nội dung giả.
+- **Link "Bỏ lọc" giữ cách sắp xếp** (sắp xếp không phải bộ lọc).
+- **Bộ lọc là form GET thường** (nút Tìm gửi cả ô tìm kiếm lẫn các ô chọn): không cần JavaScript, URL luôn phản ánh trạng thái; các tab và phân trang là link.
+- **`CvStorage.download`** trả `null` khi file không còn (404 ở Drive; `ENOENT` ở thư mục local; id không phải `local:…` khi dev). Id local chỉ lấy `basename`, không thoát khỏi thư mục.
+- **Đã kiểm với Drive thật** qua bản build production: CV 54.9 KB tải về đúng `%PDF-`, `Cache-Control: private, no-store`.
+

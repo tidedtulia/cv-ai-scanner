@@ -42,4 +42,13 @@ describe('LocalCvStorage', () => {
   it('remove() ignores a file that is already gone', async () => {
     await expect(storage.remove('local:missing.pdf')).resolves.toBeUndefined();
   });
+
+  it('download() returns the stored bytes, null when the file or the id is unknown (hr-applications AC-5)', async () => {
+    const stored = await storage.upload({ fileName: 'CV Nguyễn.pdf', content: Buffer.from('%PDF-1.7 x'), mimeType: 'application/pdf' });
+
+    await expect(storage.download(stored.fileId)).resolves.toEqual(Buffer.from('%PDF-1.7 x'));
+    await expect(storage.download('local:missing.pdf')).resolves.toBeNull();
+    await expect(storage.download('1AbcDriveId')).resolves.toBeNull();
+    await expect(storage.download('local:../../etc/passwd')).resolves.toBeNull(); // basename only: stays in the folder
+  });
 });

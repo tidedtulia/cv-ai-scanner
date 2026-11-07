@@ -9,5 +9,7 @@ import { cvStorageProvider } from './storage/cv-storage.provider';
   imports: [PrismaModule],
   controllers: [ApplicationsController],
   providers: [ApplicationsService, ApplicationsRepository, cvStorageProvider],
+  // The HR area reads the stored CVs (hr-applications AC-5)
+  exports: [cvStorageProvider],
 })
 export class ApplicationsModule {}

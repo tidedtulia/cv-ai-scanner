@@ -1,5 +1,5 @@
 import { CvStorage, CvUpload, StoredCv } from './cv-storage';
-import { AccessToken, OAuthClient, deleteFile, refreshAccessToken, uploadFile } from './google-drive.client';
+import { AccessToken, OAuthClient, deleteFile, downloadFile, refreshAccessToken, uploadFile } from './google-drive.client';
 
 export interface GoogleDriveConfig extends OAuthClient {
   refreshToken: string;
@@ -30,6 +30,10 @@ export class GoogleDriveCvStorage extends CvStorage {
 
   async remove(fileId: string): Promise<void> {
     await deleteFile(await this.accessToken(), fileId);
+  }
+
+  async download(fileId: string): Promise<Buffer | null> {
+    return downloadFile(await this.accessToken(), fileId);
   }
 
   private async accessToken(): Promise<string> {

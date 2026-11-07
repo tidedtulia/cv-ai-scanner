@@ -128,6 +128,16 @@ export async function deleteFile(accessToken: string, fileId: string): Promise<v
   await ensureOk(res, 'delete');
 }
 
+/** Content of a file; null when it does not exist (or this app cannot see it, scope drive.file). */
+export async function downloadFile(accessToken: string, fileId: string): Promise<Buffer | null> {
+  const res = await fetch(`${FILES_URL}/${encodeURIComponent(fileId)}?alt=media`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 404) return null;
+  await ensureOk(res, 'download');
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /** Returns the id of folder `name` under `parentId`, creating it when this app has not created it yet. */
 export async function findOrCreateFolder(accessToken: string, name: string, parentId = 'root'): Promise<string> {
   const query = [

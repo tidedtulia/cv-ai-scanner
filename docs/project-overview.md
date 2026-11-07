@@ -353,7 +353,7 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 
 **Phase 3 — Trang HR**
 - [x] 3.1 Auth HR (login, JWT cookie httpOnly, guard `/api/hr/*`, chống dò mật khẩu, `/api/hr/users`, trang `/hr/login` + khung `/hr`) — [features/hr-auth](./features/hr-auth/)
-- [ ] 3.2 Danh sách + chi tiết + xem CV (backend trả PDF) + quyết định + đánh giá lại
+- [x] 3.2 Danh sách (4 tab, lọc / tìm / sắp xếp trong URL) + chi tiết + xem CV (backend trả PDF, nhúng trong trang) + quyết định + đánh giá lại — [features/hr-applications](./features/hr-applications/)
 - [ ] 3.3 Quản lý job & tiêu chí; quản lý danh mục nhóm vị trí & level
 
 **Phase 4 — Email kết quả (backend)**
@@ -408,12 +408,13 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D30 | 2026-11-07 | MCP server dựng trong n8n: workflow `MCP — CV Scanner` (MCP Server Trigger, **Bearer** từ `MCP_AUTH_TOKEN`, endpoint `/mcp/cv-scanner`) + tool `get_position_requirements` gọi sub-workflow có **SQL cố định** chạy bằng role `mcp_readonly` (Claude chỉ truyền `position_id`). Cả 2 workflow nằm trong `n8n/workflows/`, tự import + publish khi `npm run n8n:up`; kiểm bằng `npm run mcp:check`. |
 | D31 | 2026-11-07 | WF-1 (`cvScannerWf1`): 00:00 giờ VN + chạy tay; AI Agent **đọc PDF trực tiếp** + tool MCP + Structured Output Parser, model **`claude-sonnet-5-5`** (Q5); n8n kiểm đủ tiêu chí và tự tính điểm / khuyến nghị (công thức §7). CV tải bằng credential Google Drive tạo từ `.env` (refresh token của backend); khoá Anthropic từ `ANTHROPIC_API_KEY`. Kiểm bằng `npm run wf1:test` / `wf1:check`. |
 | D32 | 2026-11-07 | Trang HR (Phase 3) chia 3 feature: 3.1 đăng nhập, 3.2 đơn ứng tuyển, 3.3 quản lý job / danh mục. Phiên HR: **JWT trong cookie httpOnly** `cvs_hr_session` (SameSite=Lax, 8 giờ, `@nestjs/jwt`, khoá `JWT_SECRET`); guard toàn cục cho mọi `/api/hr/*`; sai 5 lần / 15 phút theo email + IP thì chặn 15 phút; `/api/users` chuyển thành `/api/hr/users`. **1 vai trò HR** (Q6). HR xem CV qua **backend trả file PDF** (Q11). Trang HR song ngữ vi / en. |
+| D33 | 2026-11-07 | Đơn ứng tuyển cho HR (3.2): `/hr` là danh sách với **4 tab** (Cần quyết định mặc định, xếp điểm cao trước), chi tiết ở `/hr/applications/[id]` có CV nhúng. **Quyết định chốt luôn** (ACCEPTED / REJECTED là trạng thái cuối, chỉ từ EVALUATED / EVALUATION_FAILED, có hộp thoại xác nhận); ghi chú không bắt buộc, tối đa 2000 ký tự; cập nhật trạng thái theo kiểu so sánh-và-ghi (HR và n8n không ghi đè nhau). Đánh giá lại giữ kết quả cũ tới khi WF-1 ghi đè. Email kết quả để Phase 4. |
 
 ---
 
 ## 12. Câu hỏi mở
 
-Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏi-mở-về-database). Đã chốt: Q1 → D13, Q2 → D14, Q3 → D15, Q4 → D16, Q8 → D17, Q9 → D18, Q10 → D19, Q13 → D29, Q5 → D31, Q6 + Q11 → D32.
+Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏi-mở-về-database). Đã chốt: Q1 → D13, Q2 → D14, Q3 → D15, Q4 → D16, Q8 → D17, Q9 → D18, Q10 → D19, Q13 → D29, Q5 → D31, Q6 + Q11 → D32, DQ5 → D33.
 
 | # | Câu hỏi | Đề xuất |
 |---|---------|---------|

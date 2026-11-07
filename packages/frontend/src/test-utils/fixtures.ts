@@ -53,3 +53,71 @@ export const positionDetail = (code: string): IPublicPositionDetail | undefined 
 
 /** "A, B" → ["A", "B"] (lists in Gherkin steps) */
 export const list = (text: string) => text.split(',').map((item) => item.trim()).filter(Boolean);
+
+// ---- HR applications (hr-applications) ----
+
+export const hrListItem = (over: Record<string, unknown> = {}) => ({
+  id: 'a1',
+  fullName: 'Nguyễn Văn An',
+  email: 'an@example.com',
+  status: 'EVALUATED',
+  createdAt: '2026-11-06T17:30:00.000Z', // 07/11/2026 00:30 in Vietnam
+  position: { code: 'backend-dev', title: 'Backend Developer', category: 'Developer', level: 'Middle' },
+  overallScore: 83.33,
+  recommendation: 'RECOMMENDED',
+  ...over,
+});
+
+export const hrListResponse = (items = [hrListItem()], over: Record<string, unknown> = {}) => ({
+  items,
+  total: items.length,
+  page: 1,
+  pageSize: 20,
+  counts: { 'to-decide': 5, pending: 3, decided: 2, all: 10 },
+  tab: 'to-decide',
+  sort: 'score',
+  ...over,
+});
+
+export const hrFilters = () => ({
+  positions: [
+    { code: 'backend-dev', title: 'Backend Developer', status: 'OPEN' },
+    { code: 'old-job', title: 'Old Job', status: 'CLOSED' },
+  ],
+  categories: [{ code: 'DEVELOPER', name: 'Developer', isActive: true }],
+  levels: [{ code: 'MIDDLE', name: 'Middle', isActive: true }],
+});
+
+export const hrDetail = (over: Record<string, unknown> = {}) => ({
+  id: 'a1',
+  fullName: 'Nguyễn Văn An',
+  email: 'an@example.com',
+  status: 'EVALUATED',
+  createdAt: '2026-11-06T17:30:00.000Z',
+  cvFileName: 'CV An.pdf',
+  position: { code: 'backend-dev', title: 'Backend Developer', category: 'Developer', level: { code: 'MIDDLE', name: 'Middle' }, minYearsExperience: 2, status: 'OPEN' },
+  evaluation: {
+    overallScore: 83.33,
+    recommendation: 'RECOMMENDED',
+    summary: 'Ứng viên phù hợp.',
+    strengths: ['Thành thạo NestJS'],
+    weaknesses: ['Ít kinh nghiệm Prisma'],
+    criteriaScores: [
+      { criterion_id: 'c1', name: 'NestJS', type: 'TECHNICAL', weight: 5, is_required: true, score: 9, reasoning: 'Có 3 năm NestJS', evidence: 'Built NestJS APIs' },
+      { criterion_id: 'c2', name: 'English', type: 'LANGUAGE', weight: 1, is_required: false, score: 6, reasoning: 'Đọc hiểu tốt', evidence: '' },
+    ],
+    estimatedYearsExperience: 3.5,
+    estimatedLevel: { code: 'MIDDLE', name: 'Middle' },
+    model: 'claude-sonnet-5-5',
+    promptVersion: 'v1',
+    evaluatedAt: '2026-11-07T17:01:00.000Z',
+  },
+  history: [
+    { fromStatus: null, toStatus: 'SUBMITTED', note: null, createdAt: '2026-11-06T17:30:00.000Z', changedBy: null },
+    { fromStatus: 'EVALUATING', toStatus: 'EVALUATED', note: 'n8n: đánh giá xong', createdAt: '2026-11-07T17:01:00.000Z', changedBy: null },
+  ],
+  otherApplications: [],
+  canDecide: true,
+  canReEvaluate: true,
+  ...over,
+});

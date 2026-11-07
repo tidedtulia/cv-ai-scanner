@@ -6,9 +6,10 @@ import { UsersModule } from './modules/users/users.module';
 import { PositionsModule } from './modules/positions/positions.module';
 import { JobCatalogModule } from './modules/job-catalog/job-catalog.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
+import { HrApplicationsModule } from './modules/hr-applications/hr-applications.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, PositionsModule, JobCatalogModule, ApplicationsModule],
+  imports: [AuthModule, UsersModule, PositionsModule, JobCatalogModule, ApplicationsModule, HrApplicationsModule],
   controllers: [AppController],
   providers: [AppService],
 })

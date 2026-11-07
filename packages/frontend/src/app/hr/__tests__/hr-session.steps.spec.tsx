@@ -8,7 +8,7 @@ import { mockRequest, resetMockRequest } from '../../../test-utils/next-headers.
 import { mockRouter, RedirectError, resetMockRouter } from '../../../test-utils/next-navigation.mock';
 import { pageTitle, renderPage } from '../../../test-utils/render-page';
 import HrProtectedLayout from '../(protected)/layout';
-import HrHomePage, { generateMetadata as homeMetadata } from '../(protected)/page';
+import { generateMetadata as listMetadata } from '../(protected)/page';
 import { metadata as hrAreaMetadata } from '../layout';
 
 jest.mock('next/headers', () => require('../../../test-utils/next-headers.mock'));
@@ -24,7 +24,7 @@ async function openHrPage(path: string) {
   redirectedTo = undefined;
   try {
     await act(async () => {
-      await renderPage(HrProtectedLayout({ children: await HrHomePage() }));
+      await renderPage(HrProtectedLayout({ children: <p>PAGE BODY</p> }));
     });
   } catch (error) {
     if (!(error instanceof RedirectError)) throw error;
@@ -59,7 +59,7 @@ defineFeature(feature, (test) => {
     });
   });
 
-  test('The HR home page (AC-12)', ({ given, and, when, then }) => {
+  test('The HR frame around a page (AC-12)', ({ given, and, when, then }) => {
     given('my browser prefers Vietnamese', () => {
       mockRequest.acceptLanguage = 'vi-VN,vi;q=0.9';
     });
@@ -79,11 +79,11 @@ defineFeature(feature, (test) => {
       expect(screen.queryByRole('link', { name: 'Việc làm' })).toBeNull();
       expect(screen.queryByRole('contentinfo')).toBeNull();
     });
-    and(/^I see the heading "(.*)"$/, (heading: string) => {
-      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(heading);
+    and(/^I see the page content "(.*)"$/, (text: string) => {
+      expect(screen.getByText(text)).toBeTruthy();
     });
-    and(/^the tab title is "(.*)"$/, async (title: string) => {
-      expect(await pageTitle(homeMetadata)).toBe(title);
+    and(/^the tab title of the applications page is "(.*)"$/, async (title: string) => {
+      expect(await pageTitle(listMetadata)).toBe(title);
     });
     and('search engines are told not to index the HR area', () => {
       expect(hrAreaMetadata.robots).toEqual({ index: false, follow: false });

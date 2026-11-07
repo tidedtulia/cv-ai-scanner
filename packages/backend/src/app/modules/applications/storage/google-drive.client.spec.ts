@@ -2,6 +2,7 @@ import {
   DRIVE_FILE_SCOPE,
   buildConsentUrl,
   deleteFile,
+  downloadFile,
   exchangeAuthCode,
   findOrCreateFolder,
   refreshAccessToken,
@@ -147,5 +148,21 @@ describe('google-drive.client', () => {
       mimeType: 'application/vnd.google-apps.folder',
       parents: ['root'],
     });
+  });
+
+  it('downloadFile() returns the bytes of the file (hr-applications AC-5)', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(Buffer.from('%PDF-1.7 bytes'), { status: 200 }));
+
+    await expect(downloadFile('at', 'file/1')).resolves.toEqual(Buffer.from('%PDF-1.7 bytes'));
+    const { url, init } = call(0);
+    expect(url).toBe('https://www.googleapis.com/drive/v3/files/file%2F1?alt=media');
+    expect(init.headers).toEqual({ Authorization: 'Bearer at' });
+  });
+
+  it('downloadFile() returns null for a missing file and throws on other errors', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('not found', { status: 404 }));
+    await expect(downloadFile('at', 'gone')).resolves.toBeNull();
+    fetchMock.mockResolvedValueOnce(new Response('boom', { status: 500 }));
+    await expect(downloadFile('at', 'x')).rejects.toThrow('Google Drive download failed: 500');
   });
 });

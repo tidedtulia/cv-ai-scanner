@@ -9,6 +9,8 @@ export const API_ROUTES = {
   /** Every route under /api/hr/* needs an HR session (cookie) */
   HR: 'hr',
   HR_USERS: 'hr/users',
+  HR_APPLICATIONS: 'hr/applications',
+  HR_APPLICATION_FILTERS: 'hr/application-filters',
   POSITIONS: 'positions',
   JOB_CATEGORIES: 'job-categories',
   JOB_LEVELS: 'job-levels',
