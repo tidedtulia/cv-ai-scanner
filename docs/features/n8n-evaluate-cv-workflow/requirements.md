@@ -123,7 +123,7 @@ Mỗi AC là một scenario. "Đơn" là một dòng `applications`.
 **Given:** kết quả của Claude (AC-8)
 **Then:** bước hậu xử lý (Code node) đọc lại tiêu chí của vị trí từ DB bằng `n8n_app`, rồi:
 - Kiểm tra Claude chấm **đủ mọi tiêu chí** (đúng tập `criterion_id`, không thiếu, không thừa, không trùng) và mỗi `score` là số trong 0–10. Nếu không → lỗi (AC-11).
-- Ghép điểm với **tên, loại, trọng số lấy từ DB** (không dùng số liệu Claude chép lại) thành `criteria_scores`.
+- Ghép điểm với dữ liệu **lấy từ DB** (không dùng số liệu Claude chép lại) thành `criteria_scores`. Mỗi phần tử có đúng các trường: `criterion_id`, `name`, `type`, `weight`, `is_required` (từ DB) và `score`, `reasoning`, `evidence` (từ Claude), theo thứ tự `sort_order` của tiêu chí. `evidence` là trích đoạn ngắn từ CV nên chỉ nằm trong `evaluations` (HR xem), không đưa ra nơi nào khác.
 - `overall_score = Σ(score × weight) / Σ(weight) × 10`, làm tròn 2 chữ số.
 - Khuyến nghị theo bảng (ví dụ với 3 tiêu chí trọng số 3 / 2 / 1, tiêu chí 1 bắt buộc):
 
