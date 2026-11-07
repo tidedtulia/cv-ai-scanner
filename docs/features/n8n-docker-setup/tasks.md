@@ -61,7 +61,7 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md) · Hư�
   - export 2 lần cho ra file giống hệt nhau.
 - [x] AC-15: xoá workflow trong n8n → import → workflow có lại, gắn đúng credential, chạy được; import lần 2 vẫn chỉ có 1 bản
 - [x] AC-16: khi n8n dừng, `n8n:export` / `n8n:import` / `n8n:check` báo "n8n is not running…", exit 1
-- [ ] Kiểm tay trên UI (bạn): đăng nhập http://localhost:5678, mở **Credentials**, bấm **Test connection** cho 2 credential
+- [x] AC-11 (UI, 2026-11-07): đăng nhập http://localhost:5678 → **Credentials** → **Test connection** cho `CV Scanner DB (n8n_app)` và `CV Scanner DB (mcp_readonly)` đều báo "Connection tested successfully"
 
 ## Còn lại / sau này
 
