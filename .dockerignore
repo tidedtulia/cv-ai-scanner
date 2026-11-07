@@ -1,0 +1,23 @@
+# One build context (the repo root) for the three Dockerfiles: keep secrets and junk out of it (azure-deploy AC-8)
+.git
+.github
+.claude
+.idea
+.vscode
+.nx
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+dist
+**/dist
+tmp
+out-tsc
+**/out-tsc
+**/.next
+coverage
+docs
+infra
+*.log
+.DS_Store

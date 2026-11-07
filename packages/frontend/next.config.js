@@ -17,6 +17,8 @@ const nextConfig = {
   // Monorepo root; otherwise Next.js may pick a lockfile outside the repo as the tracing root
   outputFileTracingRoot: join(__dirname, '../..'),
   transpilePackages: ['@org/shared'],
+  // Container image (packages/frontend/Dockerfile): a self-contained server; `npm run dev` / `start` are not affected
+  ...(process.env.NEXT_STANDALONE === 'true' && { output: 'standalone' }),
   // The browser calls /api/* on the frontend's origin; Next.js forwards it to the NestJS backend,
   // so no CORS and the backend URL stays server-side (FQ3)
   async rewrites() {

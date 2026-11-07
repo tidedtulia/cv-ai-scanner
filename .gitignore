@@ -62,3 +62,5 @@ rule.md
 
 # Nx graph output
 output.json
+# Azure parameters with real values (secrets come from environment variables, but keep it out anyway)
+infra/azure/main.bicepparam

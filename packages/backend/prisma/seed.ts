@@ -207,7 +207,9 @@ async function main() {
   const prisma = new PrismaClient({ adapter: new PrismaPg(new pg.Pool({ connectionString })) });
   try {
     await seedCatalog(prisma);
-    await seedPositions(prisma);
+    // SEED_SAMPLE_DATA=false (production): categories, levels and the HR account only, no sample jobs
+    if (process.env['SEED_SAMPLE_DATA']?.trim().toLowerCase() === 'false') console.log('SEED_SAMPLE_DATA=false — skipping the sample positions');
+    else await seedPositions(prisma);
     await seedHrAccount(prisma);
 
     const [categories, levels, positions, criteria, users] = await Promise.all([
@@ -226,6 +228,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error);
+  // The message only: never the connection string or a stack with it (azure-deploy AC-6)
+  console.error(`Seed failed: ${error instanceof Error ? error.message.split('\n').pop() : String(error)}`);
   process.exit(1);
 });

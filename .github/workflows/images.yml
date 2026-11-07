@@ -1,0 +1,105 @@
+# Builds the 3 images from a clean checkout, scans them, and only then pushes them to ghcr.io (azure-deploy AC-12).
+# Run it by hand (Actions → Build images → Run workflow → tag) or push a tag `v*`.
+# The images are PUBLIC: nothing secret may ever be in them (docker:check and scan-image.sh check that).
+# One-time, after the first push: GitHub → your profile → Packages → each of cv-backend / cv-frontend / cv-n8n →
+# Package settings → Change visibility → Public (and connect the repository). See docs/features/azure-deploy/runbook.md.
+name: Build images
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag, e.g. 20261107.1 (letters, digits, . _ -)'
+        required: true
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # the name prefix of the Container Apps (namePrefix in the Bicep parameters): the frontend image bakes in http://<prefix>-backend
+      NAME_PREFIX: ${{ vars.NAME_PREFIX || 'cvs' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the tag and the registry path
+        id: meta
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          case "$tag" in
+            ''|*[!A-Za-z0-9_.-]*) echo "Invalid tag: '$tag' (letters, digits, . _ - only)"; exit 1 ;;
+          esac
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "registry=ghcr.io/$owner" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend (kept local until it is scanned)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/backend/Dockerfile
+          load: true
+          push: false
+          tags: local/cv-backend:build
+
+      - name: Build frontend (BACKEND_URL is baked in at build time)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/frontend/Dockerfile
+          build-args: BACKEND_URL=http://${{ env.NAME_PREFIX }}-backend
+          load: true
+          push: false
+          tags: local/cv-frontend:build
+
+      - name: Build n8n
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: n8n/Dockerfile
+          load: true
+          push: false
+          tags: local/cv-n8n:build
+
+      - name: Scan the 3 images (nothing is pushed if one is not clean)
+        run: sh scripts/deploy/scan-image.sh local/cv-backend:build local/cv-frontend:build local/cv-n8n:build
+
+      - name: Log in to ghcr.io with the workflow token
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push
+        run: |
+          for name in cv-backend cv-frontend cv-n8n; do
+            target="${{ steps.meta.outputs.registry }}/$name:${{ steps.meta.outputs.tag }}"
+            docker tag "local/$name:build" "$target"
+            docker push "$target"
+          done
+
+      - name: Summary
+        run: |
+          {
+            echo "### Images pushed"
+            echo
+            echo "- \`${{ steps.meta.outputs.registry }}/cv-backend:${{ steps.meta.outputs.tag }}\`"
+            echo "- \`${{ steps.meta.outputs.registry }}/cv-frontend:${{ steps.meta.outputs.tag }}\`"
+            echo "- \`${{ steps.meta.outputs.registry }}/cv-n8n:${{ steps.meta.outputs.tag }}\`"
+            echo
+            echo "Deploy with \`IMAGE_TAG=${{ steps.meta.outputs.tag }}\` (docs/features/azure-deploy/runbook.md)."
+            echo "First time only: set the 3 packages to **Public**."
+          } >> "$GITHUB_STEP_SUMMARY"
