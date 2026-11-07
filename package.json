@@ -23,8 +23,10 @@
     "db:upgrade": "sh scripts/db/db-upgrade.sh",
     "mcp:check": "node scripts/mcp/mcp-check.mjs",
     "mail:check": "node --env-file=.env scripts/mail/mail-check.mjs",
-    "wf1:test": "node --test n8n/wf1/*.test.cjs",
-    "wf1:check": "node scripts/wf1/wf1-check.mjs"
+    "wf1:test": "node --test n8n/wf1/*.test.cjs n8n/setup/*.test.cjs",
+    "wf1:check": "node scripts/wf1/wf1-check.mjs",
+    "docker:check": "node scripts/deploy/docker-check.mjs",
+    "bicep:check": "node scripts/deploy/bicep-check.mjs"
   },
   "private": true,
   "devDependencies": {

@@ -101,7 +101,7 @@ migrate Job (image backend): prisma migrate deploy + seed HR đầu tiên
 
 **When:** chạy lệnh `migrate` của image backend với `DATABASE_URL` trỏ tới DB trống (và `SEED_HR_*`)
 **Then:**
-- Áp dụng toàn bộ migration theo thứ tự (`prisma migrate deploy`), rồi seed idempotent: danh mục nhóm / level, job mẫu **chỉ khi `SEED_SAMPLE_DATA=true`**, và HR đầu tiên từ `SEED_HR_EMAIL` / `SEED_HR_PASSWORD` (không đặt thì bỏ qua, không lỗi).
+- Áp dụng toàn bộ migration theo thứ tự (`prisma migrate deploy`), rồi seed idempotent: danh mục nhóm / level, job mẫu (mặc định có, như khi dev; **đặt `SEED_SAMPLE_DATA=false` thì bỏ qua** — môi trường thật đặt như vậy), và HR đầu tiên từ `SEED_HR_EMAIL` / `SEED_HR_PASSWORD` (không đặt thì bỏ qua, không lỗi).
 - Chạy lại lần 2: không đổi gì, không lỗi, không tạo trùng.
 - Thất bại (không kết nối được DB, migration lỗi) → thoát mã ≠ 0 và in nguyên nhân (không in chuỗi kết nối).
 - Chạy được như **Container Apps Job** (một lần, theo yêu cầu).
@@ -127,8 +127,8 @@ migrate Job (image backend): prisma migrate deploy + seed HR đầu tiên
 - Tham số có đặt tên rõ, kèm file mẫu `main.example.bicepparam` **không chứa bí mật**; bí mật truyền qua tham số `@secure()` lúc triển khai, lưu thành **secrets của Container Apps** và nạp vào biến môi trường bằng `secretRef`.
 - `BACKEND_URL` của frontend (build và chạy) là địa chỉ nội bộ của backend; `N8N_*` URL lấy từ FQDN thực của n8n; `NODE_ENV=production`.
 - Mặc định vùng `southeastasia`; mọi kích thước, vùng, số replica là tham số.
-- `az bicep build` và `az bicep lint` không có lỗi hay cảnh báo; đầu ra (`outputs`) gồm URL frontend, URL n8n, tên ACR, tên Postgres.
-- Triển khai lần đầu khi chưa có image: dùng image giữ chỗ để tài nguyên tạo được; runbook nêu thứ tự (hạ tầng → build image bằng `az acr build` → cập nhật app).
+- `az bicep build` và `az bicep lint` không có lỗi hay cảnh báo; đầu ra (`outputs`) gồm URL frontend, URL n8n, tên ACR, tên Postgres, tên job migrate.
+- **Hai pha trong cùng một file:** `deployApps=false` (mặc định) chỉ dựng hạ tầng; build image bằng `az acr build`, khởi tạo DB, rồi `deployApps=true` + `imageTag` để tạo 3 app và job (thay cho image giữ chỗ). `deployApps` và `imageTag` đọc từ biến môi trường `DEPLOY_APPS` / `IMAGE_TAG` vì không trộn được file `.bicepparam` với tham số dòng lệnh.
 
 #### AC-8: Bảo mật cấu hình
 
@@ -136,7 +136,7 @@ migrate Job (image backend): prisma migrate deploy + seed HR đầu tiên
 - Trong repo, image và log **không có** bí mật (mật khẩu DB, `JWT_SECRET`, token, App Password, khoá Anthropic / Google); `.dockerignore` loại `.env*`, `tmp`, `dist`, `node_modules`, `.git`.
 - Backend **không** có ingress công khai: trình duyệt luôn đi qua frontend; không có CORS mở.
 - Chỉ frontend (https) và n8n (giới hạn IP) có địa chỉ công khai; Postgres bắt buộc TLS.
-- Địa chỉ IP thật của người dùng tới backend qua chuỗi envoy → frontend → backend để giới hạn đăng nhập sai theo IP hoạt động: `trust proxy` đã nhận dải mạng riêng; kiểm tra bằng test với `X-Forwarded-For` và ghi giới hạn đã biết vào runbook (cùng một IP ra ngoài cho mọi người qua Next).
+- `trust proxy` của backend đã nhận dải mạng riêng (envoy → frontend → backend), giữ nguyên hành vi đã được [hr-auth](../hr-auth/requirements.md) kiểm thử; giới hạn đã biết (qua Next mọi người có thể trông như cùng một IP) ghi trong runbook.
 - `SMTP_*` / `MAIL_FROM` bắt buộc trong runbook; **không** đặt `MAIL_REDIRECT_TO` trên môi trường thật (runbook nêu rõ, Bicep không có tham số này).
 
 ### Kiểm tra trên máy
@@ -150,7 +150,7 @@ migrate Job (image backend): prisma migrate deploy + seed HR đầu tiên
 
 #### AC-10: Dọn file cũ
 
-**Then:** `docker-compose.prod.yml` (tham chiếu `Dockerfile` và `.env.prod` không tồn tại) được thay bằng compose chạy thử giống môi trường thật (dùng 3 Dockerfile mới, Postgres tạm), hoặc xoá nếu `docker:check` đã đủ; `CLAUDE.md` cập nhật lệnh và ghi chú mới.
+**Then:** `docker-compose.prod.yml` (tham chiếu `Dockerfile` và `.env.prod` không tồn tại) bị **xoá** vì `docker:check` đã dựng và chạy đúng 3 image thật; `CLAUDE.md` cập nhật lệnh (`docker:check`, `bicep:check`) và ghi chú Azure.
 
 ### Tài liệu
 
@@ -178,8 +178,8 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): backend có Jest; ph�
 | AC-5 | `docker-check.mjs` (tạo admin `NOSUPERUSER CREATEROLE CREATEDB`, chạy `init-db.sh` hai lần, kiểm quyền) + `npm run n8n:check` (đường superuser) |
 | AC-6 | `docker-check.mjs` (migrate + seed hai lần trên DB trống) · backend `prisma/seed` (nếu tách hàm thì có test) |
 | AC-7 | `az bicep build` + `az bicep lint` không lỗi; kiểm tra tĩnh bằng script (`scripts/deploy/bicep-check.mjs`: không có giá trị bí mật trong file, backend ingress nội bộ, n8n min 1, backend max 1, probe đúng đường dẫn) · **triển khai thật: bạn chạy theo runbook, ghi vào tasks.md** |
-| AC-8 | `docker-check.mjs` (quét image và log tìm bí mật mẫu) + `bicep-check.mjs` + backend HTTP spec cho `X-Forwarded-For` |
-| AC-9, AC-10 | chạy `npm run docker:check`; xem file |
+| AC-8 | `docker-check.mjs` (không có `.env` trong image; không bí mật ngẫu nhiên nào của lần chạy xuất hiện trong log 4 container; cookie `Secure`) + `bicep-check.mjs` · `trust proxy`: test hr-auth hiện có |
+| AC-9, AC-10 | chạy `npm run docker:check`; file `docker-compose.prod.yml` đã xoá |
 | AC-11 | rà soát bằng mắt + chạy thử từng lệnh có thể chạy cục bộ (`az bicep build`, `docker build`) |
 
 ---

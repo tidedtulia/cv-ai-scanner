@@ -3,6 +3,8 @@
 # - database `n8n` (n8n's own data) owned by role `n8n`
 # - roles `n8n_app` (WF-1) and `mcp_readonly` (MCP tool) with exactly the privileges of docs/database.md §6
 # Passwords come from the root .env; they are read with psql's \getenv, never put on a command line.
+# Works with a superuser (Docker dev) and with the admin of a managed Postgres that is NOT a superuser (Azure, azure-deploy AC-5):
+# connection settings are psql's own variables (PGHOST, PGPORT, PGSSLMODE=require for Azure).
 set -eu
 
 missing=""
@@ -28,9 +30,20 @@ psql -X -q -v ON_ERROR_STOP=1 -d postgres <<'SQL'
 SELECT format('CREATE ROLE %I', r) FROM unnest(ARRAY['n8n', 'n8n_app', 'mcp_readonly']) AS r
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = r) \gexec
 
-ALTER ROLE n8n          WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'n8n_pw';
-ALTER ROLE n8n_app      WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'n8n_app_pw';
-ALTER ROLE mcp_readonly WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'mcp_pw';
+-- A superuser pins every attribute. A managed-Postgres admin may not touch SUPERUSER / REPLICATION / BYPASSRLS: a role created
+-- by CREATE ROLE already has none of them, so only the login and the password are (re)applied.
+SELECT CASE WHEN rolsuper THEN 'NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS' ELSE '' END AS attrs,
+       rolsuper AS is_super
+FROM pg_roles WHERE rolname = current_user \gset
+
+ALTER ROLE n8n          WITH LOGIN :attrs PASSWORD :'n8n_pw';
+ALTER ROLE n8n_app      WITH LOGIN :attrs PASSWORD :'n8n_app_pw';
+ALTER ROLE mcp_readonly WITH LOGIN :attrs PASSWORD :'mcp_pw';
+
+-- CREATE DATABASE ... OWNER n8n / ALTER DATABASE ... OWNER need the admin to be a member of role n8n (a superuser needs nothing)
+-- (a role made by CREATEROLE is granted to its creator WITHOUT the right to SET ROLE / inherit, hence the explicit options)
+SELECT format('GRANT n8n TO %I WITH SET TRUE, INHERIT TRUE', current_user)
+WHERE NOT :'is_super'::boolean AND NOT (pg_has_role(current_user, 'n8n', 'SET') AND pg_has_role(current_user, 'n8n', 'USAGE')) \gexec
 
 -- Database `n8n` (CREATE DATABASE cannot run inside a transaction / DO block → \gexec)
 SELECT 'CREATE DATABASE n8n OWNER n8n'

@@ -49,6 +49,8 @@ npm run db:upgrade    # stop `npm run dev` and `npm run n8n:down` first; keeps t
 # n8n (Docker, profile "n8n"; needs the N8N_* / *_DB_PASSWORD vars in .env)
 npm run n8n:up        # db + n8n-init (database n8n, roles, grants) + n8n (recreated each run; imports + publishes n8n/workflows/) on http://localhost:5678
 npm run n8n:check     # smoke-check: roles / grants / owner / credentials / timezone (read-only)
+npm run docker:check  # azure-deploy: builds the 3 images, runs them with a throw-away Postgres (non-superuser admin), checks health / proxy / n8n / migrate / init-db / no secret in logs (~10 min, Docker)
+npm run bicep:check   # azure-deploy: az bicep build + lint + static rules (backend internal, n8n min 1, no secret, …); needs `az bicep install`
 npm run mail:check    # result email: SMTP login + one test email to the address given, MAIL_REDIRECT_TO or SMTP_USER (never a candidate)
 npm run mcp:check     # MCP server (/mcp/cv-scanner): auth, tool list, get_position_requirements, injection, no candidate data
 npm run wf1:test      # WF-1 scoring Code node (runs the code inside n8n/workflows/cvScannerWf1.json; free)
@@ -71,7 +73,7 @@ npm run n8n:down      # stop n8n only; `npm run db:down` stops everything (data 
 - Result email (Phase 4): after HR's final decision the backend saves it, then sends the email over SMTP (`modules/mail`, nodemailer; vars `SMTP_*`, `MAIL_FROM`, optional `MAIL_REPLY_TO`, `MAIL_REDIRECT_TO` — set `MAIL_REDIRECT_TO` in dev so tests never reach real candidates). Templates (ACCEPTED/REJECTED × vi/en, no score or notes) are pure functions in `mail-templates.ts`; language = `applications.locale` stored at submission. A failed send keeps the decision (`result_email_sent_at` stays NULL → "Gửi lại"); `result_email_sent_at` is claimed before sending to prevent duplicates. Details: `docs/features/result-email/`.
 - Prisma config lives in `packages/backend/prisma.config.ts`; migrations in `packages/backend/prisma/migrations/` are committed. Database design: `docs/database.md`.
 
-The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod.yml` for prod) spin up PostgreSQL only — the apps run locally via Node. Dev Postgres is `postgres:17-alpine`: a volume holding an older major makes `db:up` fail with "database files are incompatible" — run `npm run db:upgrade`. In dev, n8n (`n8nio/n8n:2.46.6`) also runs in Docker under the compose profile `n8n`, so `npm run db:up` stays Postgres-only.
+`docker-compose.dev.yml` spins up PostgreSQL (and n8n under the profile `n8n`) — the apps run locally via Node. Production is Azure Container Apps (Phase 5): images from `packages/backend/Dockerfile`, `packages/frontend/Dockerfile`, `n8n/Dockerfile` (build from the repo root; the frontend needs `--build-arg BACKEND_URL=...`, baked in at build), infrastructure in `infra/azure/main.bicep`, steps in `docs/features/azure-deploy/runbook.md`. Dev Postgres is `postgres:17-alpine`: a volume holding an older major makes `db:up` fail with "database files are incompatible" — run `npm run db:upgrade`. In dev, n8n (`n8nio/n8n:2.46.6`) also runs in Docker under the compose profile `n8n`, so `npm run db:up` stays Postgres-only.
 
 - n8n setup lives in `n8n/setup/`:
   - `init-db.sh`: database `n8n`, roles `n8n` / `n8n_app` / `mcp_readonly` and **all their GRANTs**. These are not in Prisma migrations. When a migration adds a table that n8n or MCP needs, add its GRANT to `init-db.sh` and to the expected sets in `check-db.sh`.

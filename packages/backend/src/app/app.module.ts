@@ -7,10 +7,11 @@ import { PositionsModule } from './modules/positions/positions.module';
 import { JobCatalogModule } from './modules/job-catalog/job-catalog.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { HrApplicationsModule } from './modules/hr-applications/hr-applications.module';
+import { HealthModule } from './modules/health/health.module';
 import { HrPositionsModule } from './modules/hr-positions/hr-positions.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, PositionsModule, JobCatalogModule, ApplicationsModule, HrApplicationsModule, HrPositionsModule],
+  imports: [HealthModule, AuthModule, UsersModule, PositionsModule, JobCatalogModule, ApplicationsModule, HrApplicationsModule, HrPositionsModule],
   controllers: [AppController],
   providers: [AppService],
 })

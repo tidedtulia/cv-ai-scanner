@@ -363,11 +363,12 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 - [x] Gửi email khi HR quyết định; trạng thái "Chưa gửi được" + nút "Gửi lại"; `npm run mail:check` — [features/result-email](./features/result-email/)
 
 **Phase 5 — Triển khai Azure**
-- [ ] Chốt dịch vụ Azure (Q12)
-- [ ] Dockerfile cho backend & frontend
-- [ ] Azure Database for PostgreSQL: chạy migration, tạo role `n8n_app`, `mcp_readonly`, database `n8n`
-- [ ] n8n trên Azure (min replicas = 1): import workflow, tạo lại credentials
-- [ ] Đưa secrets lên Key Vault / App Settings; CI/CD
+- [x] Chốt dịch vụ Azure (Q12 → D36)
+- [x] Dockerfile cho backend, frontend và n8n; `/api/health` + `/api/health/ready` — [features/azure-deploy](./features/azure-deploy/)
+- [x] Bicep (`infra/azure/main.bicep`): PostgreSQL Flexible Server, Container Apps (frontend / backend nội bộ / n8n min 1), job migrate, secrets của Container Apps; `init-db.sh` chạy được với admin không phải superuser
+- [x] Runbook từng bước, `npm run docker:check`, `npm run bicep:check`
+- [ ] **Triển khai thật** theo runbook (bạn chạy trên Azure của bạn) và ghi kết quả
+- [ ] Key Vault, CI/CD, tên miền riêng (sau)
 
 **Sau MVP (ý tưởng)** — phân quyền Admin/HR, thống kê theo nhóm / level, lưu lịch sử nhiều lần đánh giá, nút "Đánh giá ngay" không cần chờ 00:00, ứng viên tra cứu trạng thái đơn.
 
@@ -412,6 +413,7 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D33 | 2026-11-07 | Đơn ứng tuyển cho HR (3.2): `/hr` là danh sách với **4 tab** (Cần quyết định mặc định, xếp điểm cao trước), chi tiết ở `/hr/applications/[id]` có CV nhúng. **Quyết định chốt luôn** (ACCEPTED / REJECTED là trạng thái cuối, chỉ từ EVALUATED / EVALUATION_FAILED, có hộp thoại xác nhận); ghi chú không bắt buộc, tối đa 2000 ký tự; cập nhật trạng thái theo kiểu so sánh-và-ghi (HR và n8n không ghi đè nhau). Đánh giá lại giữ kết quả cũ tới khi WF-1 ghi đè. Email kết quả để Phase 4. |
 | D34 | 2026-11-07 | Quản lý job / tiêu chí / danh mục cho HR (3.3): job tạo ra luôn là **DRAFT**, mở cần ≥ 1 tiêu chí; trạng thái chuyển **tự do** DRAFT / OPEN / CLOSED (đóng thì link ứng tuyển đã chia sẻ ngừng nhận đơn); sửa job / tiêu chí **được phép kể cả khi đã có đơn, kèm cảnh báo** (kết quả đã chấm giữ nguyên nhờ snapshot, đơn chưa chấm dùng nội dung mới); **job chưa có đơn thì xoá được**, nhóm / level **chỉ ẩn**; mã (code) tự sinh từ tên (bỏ dấu tiếng Việt) và **không đổi** sau khi tạo; tiêu chí đổi thứ tự bằng nút Lên / Xuống. Không cần migration. |
 | D35 | 2026-11-07 | Email kết quả (Phase 4): **Gmail SMTP** (App Password) ngay từ đầu, backend chỉ biết SMTP; lưu **ngôn ngữ lúc nộp** (`applications.locale`) và gửi đúng ngôn ngữ; gửi **ngay khi HR xác nhận**, lỗi thì giữ quyết định + nút Gửi lại; nội dung = lời chào + kết quả + bước tiếp, **không điểm AI / lý do / ghi chú**; người gửi và Reply-To là `trantrieu491@gmail.com`; `MAIL_REDIRECT_TO` để thử không gửi nhầm ứng viên thật; chống gửi trùng bằng cập nhật có điều kiện `result_email_sent_at IS NULL`. |
+| D36 | 2026-11-07 | Triển khai Azure (Phase 5): **Container Apps cho cả frontend, backend và n8n** + **PostgreSQL Flexible Server 17**, vùng `southeastasia`, dựng bằng **Bicep** hai pha (hạ tầng → build image bằng `az acr build` → app); frontend là app công khai duy nhất, **backend chỉ có ingress nội bộ** (max 1 replica), **n8n min = max = 1** và editor chỉ mở cho IP trong `n8nAllowedCidr`; secrets là Container Apps secrets (chưa Key Vault); domain `*.azurecontainerapps.io`; email vẫn Gmail; chưa CI/CD. `BACKEND_URL` của frontend được nướng lúc build. Chi phí ước tính 35–55 USD/tháng. Ghi chú: ứng dụng Google OAuth phải xuất bản Production trước khi chạy thật. |
 
 ---
 
@@ -422,4 +424,4 @@ Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏ
 | # | Câu hỏi | Đề xuất |
 |---|---------|---------|
 | Q7 | **Dữ liệu cá nhân:** checkbox đồng ý (D21), email + thời hạn 12 tháng (D24) đã chốt. Còn lại: `/privacy` cam kết xoá sau 12 tháng → **tự động xoá CV (Drive) + đơn (DB) bằng job định kỳ**, hay HR xoá tay? | Job định kỳ (vd chạy cùng n8n hoặc cron của backend) — làm sau MVP, trước khi chạy thật đủ 12 tháng. |
-| Q12 | **Dịch vụ Azure cụ thể** khi triển khai (Container Apps hay App Service; PostgreSQL Flexible Server; Key Vault). Chưa cần chốt ngay. | Container Apps cho cả backend, frontend, n8n (cùng 1 cách deploy bằng container) + PostgreSQL Flexible Server — chốt ở Phase 5. |
+| Q12 (đã chốt → D36) | **Dịch vụ Azure cụ thể** khi triển khai (Container Apps hay App Service; PostgreSQL Flexible Server; Key Vault). Chưa cần chốt ngay. | Container Apps cho cả backend, frontend, n8n (cùng 1 cách deploy bằng container) + PostgreSQL Flexible Server — chốt ở Phase 5. |
