@@ -205,6 +205,7 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): Gherkin + unit cho fr
 | EQ2 | Ngôn ngữ email | **Lưu ngôn ngữ lúc nộp** (`applications.locale`), gửi đúng ngôn ngữ; đơn cũ là `vi` |
 | EQ3 | Thời điểm gửi | **Ngay khi HR xác nhận** (D16); lỗi thì giữ quyết định + nút Gửi lại |
 | EQ4 | Nội dung | Lời chào + kết quả + bước tiếp, **không điểm AI, không lý do, không ghi chú nội bộ**; Reply-To là hộp thư HR |
+| EQ5 | Địa chỉ gửi / trả lời | Dùng chính `trantrieu491@gmail.com` cho cả ba vai trò: `SMTP_USER`, `MAIL_FROM` (người gửi), Reply-To (mặc định = `MAIL_FROM`) và địa chỉ yêu cầu dữ liệu ở chân email (`NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL`) |
 | — | Bảo vệ khi thử | Biến `MAIL_REDIRECT_TO` đưa mọi email về một hộp thư thử, để test không bao giờ gửi cho ứng viên thật |
 | — | Chống gửi trùng | Giữ chỗ bằng cập nhật có điều kiện `result_email_sent_at IS NULL` trước khi gửi, trả về `NULL` nếu lỗi |
 | — | Mẫu email | Viết trong code (hàm thuần), không có UI sửa (D18) |
