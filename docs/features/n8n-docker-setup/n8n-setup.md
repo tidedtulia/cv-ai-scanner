@@ -41,6 +41,8 @@ Mở http://localhost:5678 và đăng nhập bằng `N8N_OWNER_EMAIL` / `N8N_OWN
 
 ## WF-1 chấm CV
 
+Chi tiết từng node của 3 workflow: [n8n-workflows.md](../../n8n-workflows.md).
+
 WF-1 (`WF-1 — Đánh giá CV`) chạy **00:00 mỗi ngày (giờ VN)** cho mọi đơn `SUBMITTED` và ghi kết quả vào bảng `evaluations`. Muốn chạy ngay: mở workflow trên giao diện và bấm **Execute workflow** (Manual Trigger). Mỗi đơn tốn 1 lượt Claude.
 
 - `npm run wf1:test`: kiểm logic tính điểm, không tốn credit.

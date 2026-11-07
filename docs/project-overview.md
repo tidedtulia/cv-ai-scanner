@@ -188,6 +188,8 @@ Nguyên tắc:
 
 ### WF-1: Đánh giá CV
 
+> Giải thích từng node của 3 workflow n8n đã dựng (WF-1, MCP server, tool), cách sửa và xử lý sự cố: [n8n-workflows.md](./n8n-workflows.md).
+
 1. **Trigger** — Schedule **00:00 hằng ngày, giờ Việt Nam**. Cần đặt `GENERIC_TIMEZONE=Asia/Ho_Chi_Minh` cho n8n (múi giờ mặc định của n8n không phải giờ VN).
 2. **Dọn đơn treo** — đơn còn `EVALUATING` từ lần chạy trước (vd n8n crash giữa chừng) → trả về `SUBMITTED`.
 3. **Nhận đơn theo lô** — chuyển các đơn `SUBMITTED` → `EVALUATING`, mỗi lô N đơn, lặp đến khi hết. `FOR UPDATE SKIP LOCKED` giúp không lấy trùng đơn nếu có 2 lần chạy chồng nhau (vd bấm chạy tay).
