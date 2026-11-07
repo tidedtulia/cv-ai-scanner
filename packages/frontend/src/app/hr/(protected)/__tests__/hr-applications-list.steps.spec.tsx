@@ -103,6 +103,27 @@ defineFeature(feature, (test) => {
     });
   });
 
+  test('Decided applications whose email is not sent are marked (result-email AC-12)', ({ given, and, when, then }) => {
+    given_vi(given);
+    and('the list has a decided application without email and one with its email sent', () => {
+      items = [
+        hrListItem({ status: 'ACCEPTED', emailPending: true }),
+        hrListItem({ id: 'a2', fullName: 'Lê Thị Bình', email: 'binh@example.com', status: 'REJECTED', emailPending: false }),
+      ];
+    });
+    whenOpen(when);
+    then(/^the row of "Nguyễn Văn An" shows "(.*)" and "(.*)"$/, (status: string, label: string) => {
+      const row = rowOf('Nguyễn Văn An');
+      expect(row.textContent).toContain(status);
+      expect(within(row).getByText(label)).toBeTruthy();
+    });
+    and(/^the row of "Lê Thị Bình" shows "(.*)" but not "(.*)"$/, (status: string, label: string) => {
+      const row = rowOf('Lê Thị Bình');
+      expect(row.textContent).toContain(status);
+      expect(within(row).queryByText(label)).toBeNull();
+    });
+  });
+
   test('Filters, search and sort are in the form and in the URL (AC-10)', ({ given, when, then, and }) => {
     given_vi(given);
     whenOpen(when);

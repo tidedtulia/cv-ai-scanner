@@ -2,6 +2,7 @@ import { HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { HR_APPLICATION_MESSAGES } from '@org/shared';
 import { CvStorage } from '../applications/storage/cv-storage';
+import { MailService } from '../mail/mail.service';
 import { HrApplicationsRepository } from './hr-applications.repository';
 import { HrApplicationsService } from './hr-applications.service';
 
@@ -15,6 +16,8 @@ const detailRow = (status = 'EVALUATED', withEvaluation = true) => ({
   status,
   createdAt: new Date('2026-11-06T17:30:00Z'),
   cvFileName: 'CV Nguyễn Văn A.pdf',
+  locale: 'vi',
+  resultEmailSentAt: null as Date | null,
   position: { code: 'backend-dev', title: 'Backend Developer', minYearsExperience: 2, status: 'OPEN', category: { name: 'Developer' }, level: { code: 'MIDDLE', name: 'Middle' } },
   evaluation: withEvaluation
     ? {
@@ -37,9 +40,19 @@ const detailRow = (status = 'EVALUATED', withEvaluation = true) => ({
   ],
 });
 
+const emailRow = (status = 'ACCEPTED', locale = 'vi', sentAt: Date | null = null) => ({
+  fullName: 'Nguyễn Văn A',
+  email: 'a@example.com',
+  locale,
+  status,
+  resultEmailSentAt: sentAt,
+  position: { title: 'Backend Developer' },
+});
+
 describe('HrApplicationsService (hr-applications)', () => {
   let repo: jest.Mocked<HrApplicationsRepository>;
   let storage: { download: jest.Mock };
+  let mail: { send: jest.Mock; privacyEmail: string };
   let service: HrApplicationsService;
   const fail = async (promise: Promise<unknown>) => {
     const error = (await promise.catch((e) => e)) as HttpException;
@@ -56,10 +69,14 @@ describe('HrApplicationsService (hr-applications)', () => {
       findOthersByEmail: jest.fn().mockResolvedValue([]),
       findCvFile: jest.fn().mockResolvedValue({ cvDriveFileId: 'drive-1', cvFileName: 'CV Nguyễn Văn A.pdf' }),
       changeStatus: jest.fn().mockResolvedValue({ result: 'done' }),
+      findEmailData: jest.fn().mockResolvedValue(emailRow()),
+      claimEmailSend: jest.fn().mockResolvedValue(true),
+      releaseEmailSend: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<HrApplicationsRepository>;
     storage = { download: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.7')) };
     jest.spyOn(require('@nestjs/common').Logger.prototype, 'error').mockImplementation(() => undefined);
-    service = new HrApplicationsService(repo, storage as unknown as CvStorage);
+    mail = { send: jest.fn().mockResolvedValue(undefined), privacyEmail: 'privacy@example.com' };
+    service = new HrApplicationsService(repo, storage as unknown as CvStorage, mail as unknown as MailService);
   });
 
   describe('list() (AC-1, AC-2)', () => {
@@ -88,13 +105,13 @@ describe('HrApplicationsService (hr-applications)', () => {
     it('counts every tab from the per-status counts; total = count of the current tab; rows mapped', async () => {
       repo.countByStatus.mockResolvedValue({ SUBMITTED: 2, EVALUATING: 1, EVALUATED: 4, EVALUATION_FAILED: 1, REJECTED: 3 });
       repo.listPage.mockResolvedValue([
-        { id: 'a1', full_name: 'A', email: 'a@x.co', status: 'EVALUATED', created_at: new Date('2026-11-01T00:00:00Z'), position_code: 'backend-dev', position_title: 'Backend', category_name: 'Developer', level_name: 'Middle', overall_score: new Prisma.Decimal('83.33'), recommendation: 'RECOMMENDED' },
-        { id: 'a2', full_name: 'B', email: 'b@x.co', status: 'EVALUATION_FAILED', created_at: new Date('2026-11-02T00:00:00Z'), position_code: 'backend-dev', position_title: 'Backend', category_name: 'Developer', level_name: 'Middle', overall_score: null, recommendation: null },
+        { id: 'a1', full_name: 'A', email: 'a@x.co', status: 'EVALUATED', created_at: new Date('2026-11-01T00:00:00Z'), position_code: 'backend-dev', position_title: 'Backend', category_name: 'Developer', level_name: 'Middle', overall_score: new Prisma.Decimal('83.33'), recommendation: 'RECOMMENDED', result_email_sent_at: null },
+        { id: 'a2', full_name: 'B', email: 'b@x.co', status: 'EVALUATION_FAILED', created_at: new Date('2026-11-02T00:00:00Z'), position_code: 'backend-dev', position_title: 'Backend', category_name: 'Developer', level_name: 'Middle', overall_score: null, recommendation: null, result_email_sent_at: null },
       ]);
       const result = await service.list({});
       expect(result.counts).toEqual({ 'to-decide': 5, pending: 3, decided: 3, all: 11 });
       expect(result.total).toBe(5);
-      expect(result.items[0]).toEqual({ id: 'a1', fullName: 'A', email: 'a@x.co', status: 'EVALUATED', createdAt: '2026-11-01T00:00:00.000Z', position: { code: 'backend-dev', title: 'Backend', category: 'Developer', level: 'Middle' }, overallScore: 83.33, recommendation: 'RECOMMENDED' });
+      expect(result.items[0]).toEqual({ id: 'a1', fullName: 'A', email: 'a@x.co', status: 'EVALUATED', createdAt: '2026-11-01T00:00:00.000Z', position: { code: 'backend-dev', title: 'Backend', category: 'Developer', level: 'Middle' }, overallScore: 83.33, recommendation: 'RECOMMENDED', emailPending: false });
       expect(result.items[1]).toMatchObject({ overallScore: null, recommendation: null });
     });
 

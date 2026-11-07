@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { IHrApplicationDetail } from '@org/shared';
 import { ErrorNotice } from '../../../../../components/common/ErrorNotice';
 import { DecisionActions } from '../../../../../components/hr/DecisionActions';
+import { ResultEmailStatus } from '../../../../../components/hr/ResultEmailStatus';
 import { RecommendationBadge, StatusBadge } from '../../../../../components/hr/StatusBadges';
 import { format } from '../../../../../i18n/format';
 import { formatDate, formatDateTime, formatScore } from '../../../../../i18n/format-date';
@@ -60,7 +61,8 @@ export default async function HrApplicationDetailPage({ params, searchParams }: 
         <StatusBadge status={detail.status} dict={dict} />
       </header>
 
-      <DecisionActions application={{ id: detail.id, fullName: detail.fullName, canDecide: detail.canDecide, canReEvaluate: detail.canReEvaluate, positionTitle: detail.position.title }} />
+      <DecisionActions application={{ id: detail.id, fullName: detail.fullName, email: detail.email, canDecide: detail.canDecide, canReEvaluate: detail.canReEvaluate, positionTitle: detail.position.title }} />
+      <ResultEmailStatus application={{ id: detail.id, fullName: detail.fullName, email: detail.email, status: detail.status, resultEmailSentAt: detail.resultEmailSentAt, canResendEmail: detail.canResendEmail }} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-5">

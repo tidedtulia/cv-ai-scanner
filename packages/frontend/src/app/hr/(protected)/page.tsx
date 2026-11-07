@@ -162,7 +162,10 @@ export default async function HrApplicationsPage({ searchParams }: { searchParam
                   </td>
                   <td className="px-4 py-2">{item.position.title}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{formatDate(item.createdAt)}</td>
-                  <td className="px-4 py-2"><StatusBadge status={item.status} dict={dict} /></td>
+                  <td className="px-4 py-2">
+                    <StatusBadge status={item.status} dict={dict} />
+                    {item.emailPending && <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-amber-800">{t.table.emailPending}</span>}
+                  </td>
                   <td className="px-4 py-2 whitespace-nowrap">
                     {item.overallScore === null || item.recommendation === null ? (
                       t.noScore

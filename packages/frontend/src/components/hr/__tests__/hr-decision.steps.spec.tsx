@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { defineFeature, loadFeature, type DefineStepFunction } from 'jest-cucumber';
 import { hrNavigation } from '../../../lib/hr-client';
@@ -17,18 +17,36 @@ const feature = loadFeature(join(__dirname, 'hr-decision.feature'));
 let user: UserEvent;
 let flags = { canDecide: true, canReEvaluate: true };
 let respond: () => Promise<unknown>;
+let previewLocale: 'vi' | 'en';
+let previewRespond: (decision: string) => Promise<unknown>;
 const fetchMock = jest.fn();
 const assign = jest.fn();
 
 const openActions = () =>
   act(async () => {
-    await renderPage(<DecisionActions application={{ id: 'a1', fullName: 'Nguyễn Văn An', positionTitle: 'Backend Developer', ...flags }} />);
+    await renderPage(<DecisionActions application={{ id: 'a1', fullName: 'Nguyễn Văn An', email: 'an@example.com', positionTitle: 'Backend Developer', ...flags }} />);
   });
 const click = (name: string) => user.click(screen.getByRole('button', { name }));
 const dialog = () => screen.getByRole('dialog');
-const posts = () => fetchMock.mock.calls;
+const posts = () => fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST');
+const previews = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('/email-preview'));
+
+const previewBody = (decision: string, locale: 'vi' | 'en') => ({
+  locale,
+  to: 'an@example.com',
+  subject: locale === 'vi' ? 'Kết quả ứng tuyển: Backend Developer' : 'Your application: Backend Developer',
+  text: decision === 'ACCEPTED' ? 'Chào Nguyễn Văn An,\n\nChúng tôi vui mừng thông báo bạn được nhận.' : 'Chào Nguyễn Văn An,\n\nLần này chúng tôi chưa thể tiếp tục với hồ sơ của bạn.',
+  html: '<p>x</p>',
+});
 const status = (step: DefineStepFunction) =>
   step(/^I see the status "(.*)"$/, (text: string) => expect(screen.getByRole('status').textContent).toBe(text));
+const previewShown = (step: DefineStepFunction) =>
+  step(/^the dialog shows the email preview in "(.*)" to "(.*)" with subject "(.*)"$/, async (language: string, to: string, subject: string) => {
+    const preview = await screen.findByRole('region', { name: /^(Email preview|Xem trước email)$/ });
+    expect(preview.textContent).toContain(language);
+    expect(preview.textContent).toContain(to);
+    expect(preview.textContent).toContain(subject);
+  });
 const refreshed = (step: DefineStepFunction) =>
   step(/^the (?:dialog is closed and the )?page is refreshed$/, async () => {
     await waitFor(() => expect(mockRouter.refresh).toHaveBeenCalled());
@@ -43,8 +61,13 @@ defineFeature(feature, (test) => {
     user = userEvent.setup();
     flags = { canDecide: true, canReEvaluate: true };
     respond = async () => answer(200, {});
+    previewLocale = 'vi';
+    previewRespond = async (decision) => answer(200, previewBody(decision, previewLocale));
     fetchMock.mockReset();
-    fetchMock.mockImplementation(() => respond());
+    fetchMock.mockImplementation((url: string) => {
+      const preview = String(url).match(/email-preview\?decision=(\w+)/);
+      return preview ? previewRespond(preview[1]) : respond();
+    });
     global.fetch = fetchMock as unknown as typeof fetch;
     assign.mockReset();
     hrNavigation.assign = assign;
@@ -79,6 +102,68 @@ defineFeature(feature, (test) => {
     and('the focus is in the dialog', () => expect(document.activeElement).toBe(dialog()));
   });
 
+  test('The dialog shows the email that will be sent (result-email AC-9)', ({ given, when, and, then }) => {
+    given('my browser prefers Vietnamese', () => {
+      mockRequest.acceptLanguage = 'vi-VN,vi;q=0.9';
+    });
+    whenOpen(when);
+    andClick(and);
+    then(/^the API is asked for the preview "(.*)"$/, async (url: string) => {
+      await waitFor(() => expect(previews().map(([u]) => u)).toEqual([url]));
+    });
+    previewShown(and);
+    and(/^the preview says "(.*)"$/, async (sentence: string) => {
+      expect((await within(dialog()).findByText(new RegExp(sentence))).tagName).toBe('PRE');
+    });
+    and(/^it says "(.*)"$/, (text: string) => expect(screen.getByText(text)).toBeTruthy());
+    and(/^it says "(.*)"$/, (text: string) => expect(screen.getByText(text)).toBeTruthy());
+  });
+
+  test('The preview names the language of the candidate (result-email AC-9)', ({ given, when, and, then }) => {
+    given('the candidate applied in English', () => {
+      previewLocale = 'en';
+    });
+    whenOpen(when);
+    andClick(and);
+    previewShown(then);
+  });
+
+  test('A slow or failed preview does not block the decision (result-email AC-9)', ({ given, when, and, then }) => {
+    given(/^the preview (is still loading|cannot be loaded)$/, (state: string) => {
+      previewRespond = state === 'is still loading' ? () => new Promise(() => undefined) : async () => answer(500);
+    });
+    whenOpen(when);
+    andClick(and);
+    then(/^I see "(.*)"$/, async (text: string) => expect(await screen.findByText(text)).toBeTruthy());
+    and('the confirm button is enabled', () => expect((screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement).disabled).toBe(false));
+    when(/^I click "(.*)"$/, (name: string) => click(name));
+    then(/^"POST (.*)" is sent as JSON with decision "(.*)" and note "(.*)"$/, (url: string, decision: string, note: string) => {
+      const [calledUrl, init] = posts()[0];
+      expect(calledUrl).toBe(url);
+      expect(JSON.parse(init.body)).toEqual({ decision, note });
+    });
+  });
+
+  test('Re-evaluate has no email preview (result-email AC-9)', ({ when, and, then }) => {
+    whenOpen(when);
+    andClick(and);
+    then('there is no email preview', () => expect(screen.queryByRole('region', { name: 'Email preview' })).toBeNull());
+    and('the API was not asked for a preview', () => expect(previews()).toHaveLength(0));
+  });
+
+  test('What I am told after confirming (result-email AC-10)', ({ given, when, and, then }) => {
+    given(/^the server saves the decision and says the email was sent "(true|false)"$/, (sent: string) => {
+      respond = async () => answer(200, { emailSent: sent === 'true' });
+    });
+    whenOpen(when);
+    andClick(and);
+    andClick(and);
+    status(then);
+    and(/^the status is shown as a (success|warning)$/, (tone: string) => {
+      expect(screen.getByRole('status').className).toContain(tone === 'success' ? 'green' : 'amber');
+    });
+  });
+
   test('The note counts characters (AC-16)', ({ when, and, then }) => {
     whenOpen(when);
     andClick(and);
@@ -94,7 +179,7 @@ defineFeature(feature, (test) => {
       else await user.keyboard('{Escape}');
     });
     then('the dialog is closed', () => expect(screen.queryByRole('dialog')).toBeNull());
-    and('no request was sent', () => expect(posts()).toHaveLength(0));
+    and('no change request was sent', () => expect(posts()).toHaveLength(0));
     and(/^the focus is back on "(.*)"$/, async (name: string) => {
       await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name })));
     });

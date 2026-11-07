@@ -104,6 +104,7 @@ erDiagram
     varchar cv_drive_file_id
     text cv_drive_url
     application_status status
+    varchar locale
     timestamptz result_email_sent_at
     timestamptz created_at
     timestamptz updated_at
@@ -317,7 +318,8 @@ Ví dụ — job "Senior Backend Developer (Java)", nhóm Developer, level Senio
 - **Bảng trung tâm** của hệ thống: mỗi lần ứng viên submit form tạo ra **1 dòng** (họ tên, email, job, CV). Một email có thể có nhiều dòng.
 - File CV được backend upload lên Google Drive ngay khi submit (D14). Bảng chỉ lưu "địa chỉ" của file (`cv_drive_file_id` để n8n tải, `cv_drive_url` để HR xem), bản thân file không nằm trong DB.
 - `status` cho biết đơn đang ở bước nào. Cột này vừa là trạng thái hiển thị cho HR, vừa là **hàng đợi việc** cho n8n (WF-1 lúc 00:00 lấy các đơn `SUBMITTED`).
-- `result_email_sent_at`: backend đánh dấu đã gửi email kết quả. Đơn đã có quyết định mà cột này còn `NULL` → email gửi lỗi, HR bấm "Gửi lại".
+- `locale`: ngôn ngữ ứng viên đang dùng khi nộp đơn (`vi` / `en`); email kết quả gửi bằng đúng ngôn ngữ này.
+- `result_email_sent_at`: backend đánh dấu đã gửi email kết quả. Đơn đã có quyết định mà cột này còn `NULL` → email gửi lỗi, HR bấm "Gửi lại". Cột này cũng là "chỗ giữ" chống gửi trùng: backend đặt nó trước khi gửi và trả về `NULL` nếu gửi lỗi.
 - Gom các đơn cùng email để HR biết ứng viên đã nộp những lần nào, vào job nào.
 - Nhóm và level của đơn lấy qua `position_id` (join) — không copy sang bảng này.
 
@@ -333,6 +335,7 @@ Ví dụ — job "Senior Backend Developer (Java)", nhóm Developer, level Senio
 | `cv_drive_file_id` | varchar(128) | NOT NULL | n8n dùng ID này để tải file (node Google Drive tải theo ID) |
 | `cv_drive_url` | text | NOT NULL | Link để HR mở xem |
 | `status` | application_status | NOT NULL, default `SUBMITTED` | |
+| `locale` | varchar(5) | NOT NULL, default `'vi'`, CHECK (`vi`, `en`) | Ngôn ngữ của email kết quả; đơn có trước Phase 4 là `vi` |
 | `result_email_sent_at` | timestamptz | NULL | NULL = chưa gửi email kết quả. Chống gửi trùng |
 | `created_at` | timestamptz | NOT NULL, default `now()` | = thời điểm nộp |
 | `updated_at` | timestamptz | NOT NULL, default `now()` | n8n tự set khi UPDATE; dùng để phát hiện đơn treo ở `EVALUATING` |

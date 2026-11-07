@@ -6,11 +6,15 @@ import { HR_DECISION_NOTE_MAX_LENGTH, type HrDecision, type IHrApplicationDetail
 import { format } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18nProvider';
 import { hrFetch, HrSessionExpiredError } from '../../lib/hr-client';
+import { EmailPreview } from './EmailPreview';
 
 type Action = HrDecision | 're-evaluate';
 
-/** Accept / Reject / Re-evaluate with a confirmation dialog (hr-applications AC-16, AC-17, AC-18) */
-export function DecisionActions({ application }: { application: Pick<IHrApplicationDetail, 'id' | 'fullName' | 'canDecide' | 'canReEvaluate'> & { positionTitle: string } }) {
+/**
+ * Accept / Reject / Re-evaluate with a confirmation dialog (hr-applications AC-16, AC-17, AC-18);
+ * a decision shows the email it sends and says whether it went out (result-email AC-9, AC-10)
+ */
+export function DecisionActions({ application }: { application: Pick<IHrApplicationDetail, 'id' | 'fullName' | 'email' | 'canDecide' | 'canReEvaluate'> & { positionTitle: string } }) {
   const { dict } = useI18n();
   const t = dict.hrApplications.actions;
   const router = useRouter();
@@ -18,7 +22,7 @@ export function DecisionActions({ application }: { application: Pick<IHrApplicat
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ text: string; warning: boolean } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
@@ -51,12 +55,15 @@ export function DecisionActions({ application }: { application: Pick<IHrApplicat
         body: JSON.stringify(action === 're-evaluate' ? {} : { decision: action, note }),
       });
       if (response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { emailSent?: boolean };
         setAction(null);
-        setNotice(action === 're-evaluate' ? t.reEvaluateSaved : t.saved);
+        if (action === 're-evaluate') setNotice({ text: t.reEvaluateSaved, warning: false });
+        else if (body.emailSent === false) setNotice({ text: t.savedEmailFailed, warning: true });
+        else setNotice({ text: t.savedEmailSent, warning: false });
         router.refresh();
       } else if (response.status === 409) {
         setAction(null);
-        setNotice(t.conflict);
+        setNotice({ text: t.conflict, warning: false });
         router.refresh();
       } else {
         setError(t.error);
@@ -93,8 +100,11 @@ export function DecisionActions({ application }: { application: Pick<IHrApplicat
         )}
       </div>
       {notice && (
-        <p role="status" className="mt-3 rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">
-          {notice}
+        <p
+          role="status"
+          className={`mt-3 rounded-md border px-4 py-2 text-sm ${notice.warning ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-green-200 bg-green-50 text-green-800'}`}
+        >
+          {notice.text}
         </p>
       )}
 
@@ -109,7 +119,7 @@ export function DecisionActions({ application }: { application: Pick<IHrApplicat
             onKeyDown={(e) => {
               if (e.key === 'Escape' && !saving) close();
             }}
-            className="w-full max-w-md space-y-4 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+            className={`max-h-[90vh] w-full space-y-4 overflow-y-auto rounded-lg bg-white p-6 shadow-xl focus:outline-none ${action === 're-evaluate' ? 'max-w-md' : 'max-w-2xl'}`}
           >
             <h2 id="decision-title" className="text-lg font-bold text-gray-900">{title}</h2>
             {action === 're-evaluate' ? (
@@ -117,6 +127,8 @@ export function DecisionActions({ application }: { application: Pick<IHrApplicat
             ) : (
               <>
                 <p className="text-sm font-medium text-gray-700">{t.final}</p>
+                <EmailPreview applicationId={application.id} decision={action} />
+                <p className="text-sm text-gray-700">{format(t.sendNotice, { email: application.email })}</p>
                 <label className="block text-sm font-medium text-gray-700">
                   {t.note}
                   <textarea

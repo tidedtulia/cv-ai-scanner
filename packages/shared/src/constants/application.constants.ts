@@ -12,7 +12,20 @@ export const APPLICATION_FORM_FIELDS = {
   CV: 'cv',
   /** Privacy-policy consent checkbox; must equal APPLICATION_CONSENT_VALUE */
   CONSENT: 'consent',
+  /** UI language of the visitor when applying; the result email is sent in it (result-email AC-1) */
+  LOCALE: 'locale',
 } as const;
+
+/** Languages of the result email — mirrors the `applications.locale` check constraint */
+export const APPLICATION_LOCALES = ['vi', 'en'] as const;
+export type ApplicationLocale = (typeof APPLICATION_LOCALES)[number];
+export const DEFAULT_APPLICATION_LOCALE: ApplicationLocale = 'vi';
+
+/** Anything that is not a supported language falls back to the default (never an error, AC-1) */
+export const normalizeApplicationLocale = (value: unknown): ApplicationLocale =>
+  typeof value === 'string' && (APPLICATION_LOCALES as readonly string[]).includes(value.trim().toLowerCase())
+    ? (value.trim().toLowerCase() as ApplicationLocale)
+    : DEFAULT_APPLICATION_LOCALE;
 
 export const APPLICATION_CONSENT_VALUE = 'true';
 

@@ -37,8 +37,18 @@ Feature: Submit CV form
     And I click the "Submit CV" button
     Then I see the message "Submit CV successfully"
     And the API received the form fields and the consent
+    And the API was told the language is "en"
     And I see a "Back to home" link to "/"
     And I see a "View other jobs" link to "/jobs"
+
+  # result-email AC-1
+  Scenario: The language of the visitor is sent with the application
+    Given I am on the Submit CV page in Vietnamese
+    And the submit CV API responds successfully
+    When I fill in all the Vietnamese fields with a valid CV "cv.pdf"
+    And I click the "Nộp CV" button
+    Then I see the message "Nộp CV thành công"
+    And the API was told the language is "vi"
 
   # AC-11
   Scenario Outline: Show validation error for invalid <field>
