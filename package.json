@@ -26,7 +26,8 @@
     "wf1:test": "node --test n8n/wf1/*.test.cjs n8n/setup/*.test.cjs",
     "wf1:check": "node scripts/wf1/wf1-check.mjs",
     "docker:check": "node scripts/deploy/docker-check.mjs",
-    "bicep:check": "node scripts/deploy/bicep-check.mjs"
+    "bicep:check": "node scripts/deploy/bicep-check.mjs",
+    "bicep:build": "az bicep build --file infra/azure/main.bicep --outfile tmp/azure/main.json"
   },
   "private": true,
   "devDependencies": {
