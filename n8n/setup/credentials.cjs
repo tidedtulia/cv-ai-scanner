@@ -36,4 +36,29 @@ credentials.push({
   data: { token: env.MCP_AUTH_TOKEN },
 });
 
+credentials.push(
+  {
+    id: 'cvScannerAnthropic',
+    name: 'CV Scanner Anthropic',
+    type: 'anthropicApi',
+    data: { apiKey: env.ANTHROPIC_API_KEY, url: 'https://api.anthropic.com', header: false },
+  },
+  {
+    // The backend's OAuth client + refresh token (scope drive.file only sees files that client created).
+    // n8n refuses to sign a request without an access token, so an already-expired placeholder is given:
+    // the first request gets a 401 and n8n then fetches a real token with the refresh token.
+    id: 'cvScannerGoogleDrive',
+    name: 'CV Scanner Google Drive',
+    type: 'googleDriveOAuth2Api',
+    data: {
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      customScopes: true,
+      enabledScopes: 'https://www.googleapis.com/auth/drive.file',
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      oauthTokenData: { access_token: 'expired', token_type: 'Bearer', expires_at: 1, refresh_token: env.GOOGLE_REFRESH_TOKEN },
+    },
+  },
+);
+
 writeFileSync(process.argv[2], JSON.stringify(credentials), { mode: 0o600 });

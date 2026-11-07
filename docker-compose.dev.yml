@@ -80,6 +80,10 @@ services:
       N8N_APP_DB_PASSWORD: ${N8N_APP_DB_PASSWORD:-}
       MCP_DB_PASSWORD: ${MCP_DB_PASSWORD:-}
       MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REFRESH_TOKEN: ${GOOGLE_REFRESH_TOKEN:-}
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/setup:/setup:ro

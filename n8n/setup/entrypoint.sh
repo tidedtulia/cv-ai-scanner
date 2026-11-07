@@ -13,7 +13,7 @@ fail() {
 }
 
 missing=""
-for name in N8N_ENCRYPTION_KEY N8N_OWNER_EMAIL N8N_OWNER_PASSWORD DB_POSTGRESDB_PASSWORD POSTGRES_DB N8N_APP_DB_PASSWORD MCP_DB_PASSWORD MCP_AUTH_TOKEN; do
+for name in N8N_ENCRYPTION_KEY N8N_OWNER_EMAIL N8N_OWNER_PASSWORD DB_POSTGRESDB_PASSWORD POSTGRES_DB N8N_APP_DB_PASSWORD MCP_DB_PASSWORD MCP_AUTH_TOKEN ANTHROPIC_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_REFRESH_TOKEN; do
   eval "value=\${$name:-}"
   [ -n "$value" ] || missing="$missing $name"
 done
@@ -46,7 +46,7 @@ umask 077
 credentials_file=$(mktemp)
 trap 'rm -f "$credentials_file"' EXIT INT TERM
 node /setup/credentials.cjs "$credentials_file"
-echo "n8n-setup: importing credentials (Postgres n8n_app / mcp_readonly, MCP token)"
+echo "n8n-setup: importing credentials (Postgres n8n_app / mcp_readonly, MCP token, Anthropic, Google Drive)"
 n8n import:credentials --input="$credentials_file"
 rm -f "$credentials_file"
 trap - EXIT INT TERM
@@ -61,5 +61,5 @@ if ls /workflows/*.json >/dev/null 2>&1; then
   done
 fi
 
-unset N8N_OWNER_PASSWORD N8N_APP_DB_PASSWORD MCP_DB_PASSWORD MCP_AUTH_TOKEN
+unset N8N_OWNER_PASSWORD N8N_APP_DB_PASSWORD MCP_DB_PASSWORD MCP_AUTH_TOKEN ANTHROPIC_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_REFRESH_TOKEN
 exec /docker-entrypoint.sh start

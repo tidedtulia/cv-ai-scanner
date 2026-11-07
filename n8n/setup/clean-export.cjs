@@ -2,11 +2,12 @@
 // and free of personal data before they are committed.
 // - shared: the owner's project, whose name contains the owner's email + instance-specific ids
 // - pinData / staticData: pinned sample data (could be candidate data) / trigger state of this instance
-// - timestamps + version counters: change on every export, only noise in git diffs
+// - timestamps, version ids + counters: change on every import / export, only noise in git diffs
+//   (n8n creates a new versionId at each import, so `npm run n8n:up` would otherwise change every file)
 const { readdirSync, readFileSync, writeFileSync } = require('node:fs');
 
 const dir = process.argv[2] || '/workflows';
-const DROP = ['shared', 'pinData', 'staticData', 'createdAt', 'updatedAt', 'activeVersionId', 'versionCounter', 'triggerCount'];
+const DROP = ['shared', 'pinData', 'staticData', 'createdAt', 'updatedAt', 'versionId', 'activeVersionId', 'versionCounter', 'triggerCount'];
 
 for (const file of readdirSync(dir).filter((name) => name.endsWith('.json'))) {
   const path = `${dir}/${file}`;

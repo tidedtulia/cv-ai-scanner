@@ -14,6 +14,8 @@ openssl rand -hex 32    # dùng làm N8N_ENCRYPTION_KEY
 | `N8N_DB_PASSWORD`, `N8N_APP_DB_PASSWORD`, `MCP_DB_PASSWORD` | 3 mật khẩu bất kỳ, khác nhau. Script tự tạo hoặc cập nhật role theo các giá trị này. |
 | `N8N_OWNER_EMAIL`, `N8N_OWNER_PASSWORD` | Tài khoản đăng nhập n8n. Mật khẩu dài 8–64 ký tự, có ít nhất 1 chữ số và 1 chữ in hoa. |
 | `MCP_AUTH_TOKEN` | Bearer token của MCP server (≥ 32 ký tự): `openssl rand -hex 32`. Xem [n8n-mcp-server](../n8n-mcp-server/requirements.md). |
+| `ANTHROPIC_API_KEY` | Khoá Anthropic API cho WF-1 (Claude chấm CV). Xem [n8n-evaluate-cv-workflow](../n8n-evaluate-cv-workflow/requirements.md). |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Đã có cho backend; n8n dùng lại để tải CV từ Drive. |
 | `N8N_OWNER_FIRST_NAME`, `N8N_OWNER_LAST_NAME`, `N8N_HOST_PORT` | Không bắt buộc. Port mặc định là `5678`. |
 
 Docker Compose đọc các giá trị này theo quy tắc riêng: `$` bị hiểu là biến, còn `#` đứng sau dấu cách bị hiểu là bắt đầu comment. Giá trị có `#`, `$` hoặc dấu cách thì đặt trong **dấu nháy đơn**, vd `N8N_OWNER_PASSWORD='Abc#123$x'`.
@@ -36,6 +38,14 @@ Mở http://localhost:5678 và đăng nhập bằng `N8N_OWNER_EMAIL` / `N8N_OWN
 ## MCP server cho Claude
 
 `npm run n8n:up` cũng import và publish 2 workflow trong `n8n/workflows/`; MCP server chạy ở `http://localhost:5678/mcp/cv-scanner` (header `Authorization: Bearer <MCP_AUTH_TOKEN>`). Kiểm tra: `npm run mcp:check`. `n8n:up` tạo lại container n8n mỗi lần chạy, nên workflow sửa trên giao diện sẽ bị ghi đè bằng bản trong repo: sửa xong nhớ `npm run n8n:export`.
+
+## WF-1 chấm CV
+
+WF-1 (`WF-1 — Đánh giá CV`) chạy **00:00 mỗi ngày (giờ VN)** cho mọi đơn `SUBMITTED` và ghi kết quả vào bảng `evaluations`. Muốn chạy ngay: mở workflow trên giao diện và bấm **Execute workflow** (Manual Trigger). Mỗi đơn tốn 1 lượt Claude.
+
+- `npm run wf1:test`: kiểm logic tính điểm, không tốn credit.
+- `npm run wf1:check`: kiểm đầu-cuối bằng 5 CV mẫu (backend phải đang chạy với `CV_STORAGE=google-drive`; tốn khoảng 7 lượt Claude). Lệnh từ chối chạy khi còn đơn thật đang chờ, trừ khi thêm `-- --include-real`.
+- Khi refresh token Google hết hạn (7 ngày, OAuth app còn ở Testing), WF-1 báo "Không tải được CV từ Google Drive" cho mọi đơn: chạy `npm run drive:auth` rồi `npm run n8n:up`.
 
 ## 3. Lưu workflow vào repo
 

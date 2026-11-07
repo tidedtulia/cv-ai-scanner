@@ -21,7 +21,9 @@
     "n8n:check": "sh n8n/setup/check.sh",
     "db:backup": "sh scripts/db/db-backup.sh",
     "db:upgrade": "sh scripts/db/db-upgrade.sh",
-    "mcp:check": "node scripts/mcp/mcp-check.mjs"
+    "mcp:check": "node scripts/mcp/mcp-check.mjs",
+    "wf1:test": "node --test n8n/wf1/*.test.cjs",
+    "wf1:check": "node scripts/wf1/wf1-check.mjs"
   },
   "private": true,
   "devDependencies": {

@@ -50,6 +50,8 @@ npm run db:upgrade    # stop `npm run dev` and `npm run n8n:down` first; keeps t
 npm run n8n:up        # db + n8n-init (database n8n, roles, grants) + n8n (recreated each run; imports + publishes n8n/workflows/) on http://localhost:5678
 npm run n8n:check     # smoke-check: roles / grants / owner / credentials / timezone (read-only)
 npm run mcp:check     # MCP server (/mcp/cv-scanner): auth, tool list, get_position_requirements, injection, no candidate data
+npm run wf1:test      # WF-1 scoring Code node (runs the code inside n8n/workflows/cvScannerWf1.json; free)
+npm run wf1:check     # WF-1 end to end: 5 test CVs through the backend + real Drive + Claude (~7 calls), then cleans up
 npm run n8n:export    # workflows → n8n/workflows/*.json (commit them); n8n:import does the reverse
 npm run n8n:logs
 npm run n8n:down      # stop n8n only; `npm run db:down` stops everything (data kept)
@@ -69,7 +71,7 @@ The Docker Compose files (`docker-compose.dev.yml` for dev, `docker-compose.prod
 
 - n8n setup lives in `n8n/setup/`:
   - `init-db.sh`: database `n8n`, roles `n8n` / `n8n_app` / `mcp_readonly` and **all their GRANTs**. These are not in Prisma migrations. When a migration adds a table that n8n or MCP needs, add its GRANT to `init-db.sh` and to the expected sets in `check-db.sh`.
-  - `entrypoint.sh`: owner from `.env`, the credentials with fixed ids (`cvScannerN8nApp`, `cvScannerMcpRead`, `cvScannerMcpToken`), then imports the workflows of `n8n/workflows/` and publishes those exported with `"active": true`. n8n workflows in the repo are the source of truth: after editing one in the UI run `npm run n8n:export`.
+  - `entrypoint.sh`: owner from `.env`, the credentials with fixed ids (`cvScannerN8nApp`, `cvScannerMcpRead`, `cvScannerMcpToken`, `cvScannerAnthropic`, `cvScannerGoogleDrive`), then imports the workflows of `n8n/workflows/` and publishes those exported with `"active": true`. n8n workflows in the repo are the source of truth: after editing one in the UI run `npm run n8n:export`.
   - Details: `docs/features/n8n-docker-setup/`.
 - Docker Compose reads `.env` differently from dotenv / `node --env-file`: `#` only starts a comment after a space, and `$` is interpolated. Single-quote values that contain `#`, `$` or spaces.
 
@@ -96,7 +98,7 @@ Every feature has its own branch (`feature/<name>`) and folder `docs/features/<n
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cv-ai-scanner** (1210 symbols, 2013 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cv-ai-scanner** (1421 symbols, 2330 relationships, 54 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
