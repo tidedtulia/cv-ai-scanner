@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ErrorNotice } from '../../components/common/ErrorNotice';
-import { SubmitCvForm } from '../../components/submit-cv/SubmitCvForm';
-import { getI18n } from '../../i18n/server';
-import { fetchOpenPositions } from '../../lib/backend';
+import { ErrorNotice } from '../../../components/common/ErrorNotice';
+import { SubmitCvForm } from '../../../components/submit-cv/SubmitCvForm';
+import { getI18n } from '../../../i18n/server';
+import { fetchOpenPositions } from '../../../lib/backend';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { dict } = await getI18n();

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { SITE_CONFIG } from '../../config/site';
-import { format } from '../../i18n/format';
-import { getI18n } from '../../i18n/server';
+import { SITE_CONFIG } from '../../../config/site';
+import { format } from '../../../i18n/format';
+import { getI18n } from '../../../i18n/server';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { dict } = await getI18n();

@@ -3,21 +3,21 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { defineFeature, loadFeature, type DefineStepFunction } from 'jest-cucumber';
 import type { Metadata } from 'next';
-import { isLocale } from '../../i18n/config';
-import { dictionaries } from '../../i18n/dictionaries';
-import { mockRouter, resetMockRouter } from '../../test-utils/next-navigation.mock';
-import { mockRequest, resetMockRequest } from '../../test-utils/next-headers.mock';
-import { resetMockBackend } from '../../test-utils/backend.mock';
-import { pageTitle, renderLayout } from '../../test-utils/render-page';
+import { isLocale } from '../../../i18n/config';
+import { dictionaries } from '../../../i18n/dictionaries';
+import { mockRouter, resetMockRouter } from '../../../test-utils/next-navigation.mock';
+import { mockRequest, resetMockRequest } from '../../../test-utils/next-headers.mock';
+import { resetMockBackend } from '../../../test-utils/backend.mock';
+import { pageTitle, renderLayout } from '../../../test-utils/render-page';
 import HomePage from '../page';
 import { generateMetadata as jobsMetadata } from '../jobs/page';
 import { generateMetadata as privacyMetadata } from '../privacy/page';
 import { generateMetadata as submitMetadata } from '../submit-cv/page';
 
-jest.mock('next/headers', () => require('../../test-utils/next-headers.mock'));
-jest.mock('next/navigation', () => require('../../test-utils/next-navigation.mock'));
-jest.mock('../../lib/backend', () => require('../../test-utils/backend.mock'));
-jest.mock('react-markdown', () => require('../../test-utils/react-markdown.mock'));
+jest.mock('next/headers', () => require('../../../test-utils/next-headers.mock'));
+jest.mock('next/navigation', () => require('../../../test-utils/next-navigation.mock'));
+jest.mock('../../../lib/backend', () => require('../../../test-utils/backend.mock'));
+jest.mock('react-markdown', () => require('../../../test-utils/react-markdown.mock'));
 
 const feature = loadFeature(join(__dirname, 'language.feature'));
 

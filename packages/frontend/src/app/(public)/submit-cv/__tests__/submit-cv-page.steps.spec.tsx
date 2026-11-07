@@ -1,16 +1,16 @@
 import { join } from 'path';
 import { screen, within } from '@testing-library/react';
 import { defineFeature, loadFeature, type DefineStepFunction } from 'jest-cucumber';
-import * as backend from '../../../test-utils/backend.mock';
-import { list, positionByTitle, positionDetail } from '../../../test-utils/fixtures';
-import { mockRequest, resetMockRequest } from '../../../test-utils/next-headers.mock';
-import { renderPage } from '../../../test-utils/render-page';
+import * as backend from '../../../../test-utils/backend.mock';
+import { list, positionByTitle, positionDetail } from '../../../../test-utils/fixtures';
+import { mockRequest, resetMockRequest } from '../../../../test-utils/next-headers.mock';
+import { renderPage } from '../../../../test-utils/render-page';
 import SubmitCvPage from '../page';
 
-jest.mock('next/headers', () => require('../../../test-utils/next-headers.mock'));
-jest.mock('next/navigation', () => require('../../../test-utils/next-navigation.mock'));
-jest.mock('../../../lib/backend', () => require('../../../test-utils/backend.mock'));
-jest.mock('react-markdown', () => require('../../../test-utils/react-markdown.mock'));
+jest.mock('next/headers', () => require('../../../../test-utils/next-headers.mock'));
+jest.mock('next/navigation', () => require('../../../../test-utils/next-navigation.mock'));
+jest.mock('../../../../lib/backend', () => require('../../../../test-utils/backend.mock'));
+jest.mock('react-markdown', () => require('../../../../test-utils/react-markdown.mock'));
 
 const feature = loadFeature(join(__dirname, 'submit-cv-page.feature'));
 

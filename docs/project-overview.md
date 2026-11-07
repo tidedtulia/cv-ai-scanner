@@ -349,12 +349,12 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 - [ ] PoC: AI Agent + file PDF + MCP Client Tool (chọn phương án nếu AI Agent không nhận PDF)
 - [x] 2.2 Workflow MCP server: tool `get_position_requirements` — [features/n8n-mcp-server](./features/n8n-mcp-server/)
 - [x] 2.3 WF-1 + prompt v1; thử với bộ CV mẫu (tốt / trung bình / không phù hợp / CV scan / CV có prompt injection) — [features/n8n-evaluate-cv-workflow](./features/n8n-evaluate-cv-workflow/)
-- [ ] Export các workflow (MCP, WF-1) ra `n8n/workflows/` bằng `npm run n8n:export`
+- [x] Export các workflow (MCP, WF-1) ra `n8n/workflows/` bằng `npm run n8n:export`
 
 **Phase 3 — Trang HR**
-- [ ] Auth HR (login, JWT guard)
-- [ ] Danh sách + chi tiết + quyết định + đánh giá lại
-- [ ] Quản lý job & tiêu chí; quản lý danh mục nhóm vị trí & level
+- [x] 3.1 Auth HR (login, JWT cookie httpOnly, guard `/api/hr/*`, chống dò mật khẩu, `/api/hr/users`, trang `/hr/login` + khung `/hr`) — [features/hr-auth](./features/hr-auth/)
+- [ ] 3.2 Danh sách + chi tiết + xem CV (backend trả PDF) + quyết định + đánh giá lại
+- [ ] 3.3 Quản lý job & tiêu chí; quản lý danh mục nhóm vị trí & level
 
 **Phase 4 — Email kết quả (backend)**
 - [ ] Module `mail` (SMTP) + 2 mẫu email (ACCEPTED / REJECTED)
@@ -407,16 +407,15 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D29 | 2026-11-07 | Nâng PostgreSQL dev **16 → 17** (n8n 2.46 chỉ còn hỗ trợ tương thích với 16) bằng dump / restore, giữ nguyên dữ liệu; `docker-compose.prod.yml` cũng cố định `postgres:17-alpine`. Lệnh `npm run db:backup` / `db:upgrade`. Azure: chọn PostgreSQL 17 ở Phase 5. |
 | D30 | 2026-11-07 | MCP server dựng trong n8n: workflow `MCP — CV Scanner` (MCP Server Trigger, **Bearer** từ `MCP_AUTH_TOKEN`, endpoint `/mcp/cv-scanner`) + tool `get_position_requirements` gọi sub-workflow có **SQL cố định** chạy bằng role `mcp_readonly` (Claude chỉ truyền `position_id`). Cả 2 workflow nằm trong `n8n/workflows/`, tự import + publish khi `npm run n8n:up`; kiểm bằng `npm run mcp:check`. |
 | D31 | 2026-11-07 | WF-1 (`cvScannerWf1`): 00:00 giờ VN + chạy tay; AI Agent **đọc PDF trực tiếp** + tool MCP + Structured Output Parser, model **`claude-sonnet-5-5`** (Q5); n8n kiểm đủ tiêu chí và tự tính điểm / khuyến nghị (công thức §7). CV tải bằng credential Google Drive tạo từ `.env` (refresh token của backend); khoá Anthropic từ `ANTHROPIC_API_KEY`. Kiểm bằng `npm run wf1:test` / `wf1:check`. |
+| D32 | 2026-11-07 | Trang HR (Phase 3) chia 3 feature: 3.1 đăng nhập, 3.2 đơn ứng tuyển, 3.3 quản lý job / danh mục. Phiên HR: **JWT trong cookie httpOnly** `cvs_hr_session` (SameSite=Lax, 8 giờ, `@nestjs/jwt`, khoá `JWT_SECRET`); guard toàn cục cho mọi `/api/hr/*`; sai 5 lần / 15 phút theo email + IP thì chặn 15 phút; `/api/users` chuyển thành `/api/hr/users`. **1 vai trò HR** (Q6). HR xem CV qua **backend trả file PDF** (Q11). Trang HR song ngữ vi / en. |
 
 ---
 
 ## 12. Câu hỏi mở
 
-Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏi-mở-về-database). Đã chốt: Q1 → D13, Q2 → D14, Q3 → D15, Q4 → D16, Q8 → D17, Q9 → D18, Q10 → D19, Q13 → D29, Q5 → D31.
+Câu hỏi về database nằm trong [database.md §8](./database.md#8-câu-hỏi-mở-về-database). Đã chốt: Q1 → D13, Q2 → D14, Q3 → D15, Q4 → D16, Q8 → D17, Q9 → D18, Q10 → D19, Q13 → D29, Q5 → D31, Q6 + Q11 → D32.
 
 | # | Câu hỏi | Đề xuất |
 |---|---------|---------|
-| Q6 | **Phân quyền HR:** mọi HR có quyền như nhau, hay cần vai trò Admin (quản lý tài khoản / job / danh mục) tách với HR? | 1 vai trò cho MVP. |
 | Q7 | **Dữ liệu cá nhân:** checkbox đồng ý (D21), email + thời hạn 12 tháng (D24) đã chốt. Còn lại: `/privacy` cam kết xoá sau 12 tháng → **tự động xoá CV (Drive) + đơn (DB) bằng job định kỳ**, hay HR xoá tay? | Job định kỳ (vd chạy cùng n8n hoặc cron của backend) — làm sau MVP, trước khi chạy thật đủ 12 tháng. |
-| Q11 | **HR xem CV bằng cách nào?** Mở link Drive (HR cần quyền vào thư mục), hay backend proxy file để nhúng trình xem PDF ngay trong trang HR? | Mở link Drive cho MVP. |
 | Q12 | **Dịch vụ Azure cụ thể** khi triển khai (Container Apps hay App Service; PostgreSQL Flexible Server; Key Vault). Chưa cần chốt ngay. | Container Apps cho cả backend, frontend, n8n (cùng 1 cách deploy bằng container) + PostgreSQL Flexible Server — chốt ở Phase 5. |

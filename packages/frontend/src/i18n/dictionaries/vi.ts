@@ -95,6 +95,38 @@ export const vi: Dictionary = {
     UPLOAD_FAILED: 'Không tải được CV lên. Vui lòng thử lại.',
     CONSENT_REQUIRED: 'Vui lòng đồng ý với chính sách quyền riêng tư để ứng tuyển',
   },
+  hr: {
+    areaName: 'HR',
+    loadError: 'Hiện chưa kiểm tra được phiên đăng nhập. Vui lòng thử lại sau ít phút.',
+    login: {
+      title: 'Đăng nhập HR',
+      heading: 'Đăng nhập khu vực HR',
+      intro: 'Chỉ dành cho bộ phận tuyển dụng.',
+      email: 'Email',
+      password: 'Mật khẩu',
+      submit: 'Đăng nhập',
+      submitting: 'Đang đăng nhập…',
+      sessionExpired: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.',
+      errors: {
+        emailRequired: 'Vui lòng nhập email',
+        emailInvalid: 'Email không hợp lệ',
+        passwordRequired: 'Vui lòng nhập mật khẩu',
+        invalidCredentials: 'Email hoặc mật khẩu không đúng.',
+        tooManyAttempts: 'Bạn đã nhập sai quá nhiều lần. Thử lại sau {minutes} phút.',
+        network: 'Không kết nối được máy chủ. Vui lòng thử lại.',
+      },
+    },
+    header: {
+      signedInAs: 'Đang đăng nhập: {name}',
+      logout: 'Đăng xuất',
+      loggingOut: 'Đang đăng xuất…',
+    },
+    home: {
+      title: 'HR',
+      greeting: 'Xin chào, {name}',
+      intro: 'Danh sách đơn ứng tuyển và kết quả đánh giá của AI sẽ hiển thị ở đây.',
+    },
+  },
   privacy: {
     title: 'Chính sách quyền riêng tư',
     updated: 'Cập nhật lần cuối: {date}',

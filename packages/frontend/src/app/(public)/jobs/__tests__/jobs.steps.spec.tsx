@@ -2,16 +2,16 @@ import { join } from 'path';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { defineFeature, loadFeature, type DefineStepFunction } from 'jest-cucumber';
-import * as backend from '../../../test-utils/backend.mock';
-import { list, positionByTitle } from '../../../test-utils/fixtures';
-import { mockRequest, resetMockRequest } from '../../../test-utils/next-headers.mock';
-import { mockRouter, resetMockRouter } from '../../../test-utils/next-navigation.mock';
-import { renderPage } from '../../../test-utils/render-page';
+import * as backend from '../../../../test-utils/backend.mock';
+import { list, positionByTitle } from '../../../../test-utils/fixtures';
+import { mockRequest, resetMockRequest } from '../../../../test-utils/next-headers.mock';
+import { mockRouter, resetMockRouter } from '../../../../test-utils/next-navigation.mock';
+import { renderPage } from '../../../../test-utils/render-page';
 import JobsPage from '../page';
 
-jest.mock('next/headers', () => require('../../../test-utils/next-headers.mock'));
-jest.mock('next/navigation', () => require('../../../test-utils/next-navigation.mock'));
-jest.mock('../../../lib/backend', () => require('../../../test-utils/backend.mock'));
+jest.mock('next/headers', () => require('../../../../test-utils/next-headers.mock'));
+jest.mock('next/navigation', () => require('../../../../test-utils/next-navigation.mock'));
+jest.mock('../../../../lib/backend', () => require('../../../../test-utils/backend.mock'));
 
 const feature = loadFeature(join(__dirname, 'jobs.feature'));
 

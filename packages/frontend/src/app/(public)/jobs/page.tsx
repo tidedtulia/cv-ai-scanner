@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ErrorNotice } from '../../components/common/ErrorNotice';
-import { JobCard } from '../../components/jobs/JobCard';
-import { JobFilters, type JobFilterValues } from '../../components/jobs/JobFilters';
-import { getI18n } from '../../i18n/server';
-import { fetchJobCategories, fetchJobLevels, fetchOpenPositions } from '../../lib/backend';
+import { ErrorNotice } from '../../../components/common/ErrorNotice';
+import { JobCard } from '../../../components/jobs/JobCard';
+import { JobFilters, type JobFilterValues } from '../../../components/jobs/JobFilters';
+import { getI18n } from '../../../i18n/server';
+import { fetchJobCategories, fetchJobLevels, fetchOpenPositions } from '../../../lib/backend';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { dict } = await getI18n();

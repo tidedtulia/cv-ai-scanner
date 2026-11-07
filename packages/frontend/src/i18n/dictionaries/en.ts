@@ -86,6 +86,38 @@ export const en = {
   },
   /** Same keys as the API's error `code` (APPLICATION_MESSAGES in @org/shared) */
   applicationMessages: APPLICATION_MESSAGES as Record<ApplicationMessageCode, string>,
+  hr: {
+    areaName: 'HR',
+    loadError: 'We could not check your session right now. Please try again in a moment.',
+    login: {
+      title: 'HR sign in',
+      heading: 'Sign in to the HR area',
+      intro: 'For the recruiting team only.',
+      email: 'Email',
+      password: 'Password',
+      submit: 'Sign in',
+      submitting: 'Signing in…',
+      sessionExpired: 'Your session has expired. Please sign in again.',
+      errors: {
+        emailRequired: 'Please enter your email',
+        emailInvalid: 'Invalid email address',
+        passwordRequired: 'Please enter your password',
+        invalidCredentials: 'Incorrect email or password.',
+        tooManyAttempts: 'Too many failed attempts. Please try again in {minutes} minutes.',
+        network: 'Cannot reach the server. Please try again.',
+      },
+    },
+    header: {
+      signedInAs: 'Signed in as {name}',
+      logout: 'Sign out',
+      loggingOut: 'Signing out…',
+    },
+    home: {
+      title: 'HR',
+      greeting: 'Hello, {name}',
+      intro: 'The applications and their AI evaluations will appear here.',
+    },
+  },
   privacy: {
     title: 'Privacy policy',
     updated: 'Last updated: {date}',

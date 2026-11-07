@@ -1,13 +1,13 @@
 import { join } from 'path';
 import { screen, within } from '@testing-library/react';
 import { defineFeature, loadFeature, type DefineStepFunction } from 'jest-cucumber';
-import { list } from '../../test-utils/fixtures';
-import { mockRequest, resetMockRequest } from '../../test-utils/next-headers.mock';
-import { renderLayout, renderPage } from '../../test-utils/render-page';
+import { list } from '../../../test-utils/fixtures';
+import { mockRequest, resetMockRequest } from '../../../test-utils/next-headers.mock';
+import { renderLayout, renderPage } from '../../../test-utils/render-page';
 import HomePage from '../page';
 
-jest.mock('next/headers', () => require('../../test-utils/next-headers.mock'));
-jest.mock('next/navigation', () => require('../../test-utils/next-navigation.mock'));
+jest.mock('next/headers', () => require('../../../test-utils/next-headers.mock'));
+jest.mock('next/navigation', () => require('../../../test-utils/next-navigation.mock'));
 
 const feature = loadFeature(join(__dirname, 'home.feature'));
 

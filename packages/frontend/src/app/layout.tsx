@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 import './global.css';
-import { SiteFooter } from '../components/layout/SiteFooter';
-import { SiteHeader } from '../components/layout/SiteHeader';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { getI18n } from '../i18n/server';
 
@@ -13,22 +11,22 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+/**
+ * Root layout: <html lang>, <body> and the i18n context only. The public pages get their header / footer
+ * from app/(public)/layout.tsx, the HR area its own from app/hr/layout.tsx (hr-auth AC-12).
+ */
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { locale, dict } = await getI18n();
+  const { locale } = await getI18n();
 
   return (
     // suppressHydrationWarning: browser extensions (e.g. Grammarly) inject attributes into <html>/<body>
     <html lang={locale} suppressHydrationWarning>
       <body suppressHydrationWarning className="flex min-h-screen flex-col bg-gray-50 text-gray-900">
-        <I18nProvider locale={locale}>
-          <SiteHeader dict={dict} />
-          <main className="flex-1">{children}</main>
-          <SiteFooter dict={dict} />
-        </I18nProvider>
+        <I18nProvider locale={locale}>{children}</I18nProvider>
       </body>
     </html>
   );

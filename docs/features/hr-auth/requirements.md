@@ -73,7 +73,8 @@ Mỗi AC là một scenario. "HR" là một dòng `users` có `is_active = true`
 |------|---------|
 | thiếu `email` hoặc sai định dạng | 400 `code: EMAIL_INVALID` |
 | thiếu `password` / chuỗi rỗng | 400 `code: PASSWORD_REQUIRED` |
-| không phải JSON / thừa field lạ | 400, field lạ bị bỏ qua |
+| `Content-Type` không phải `application/json` (vd form HTML) | 415 `code: JSON_REQUIRED`, không đăng nhập |
+| thừa field lạ | bỏ qua field lạ |
 
 #### AC-4: Chặn dò mật khẩu
 
@@ -142,7 +143,7 @@ Mỗi AC là một scenario. "HR" là một dòng `users` có `is_active = true`
 
 **Given:** chưa đăng nhập, mở `/hr/login`
 **Then:**
-- Form: Email, Mật khẩu (ẩn ký tự), nút **Đăng nhập**; song ngữ VI / EN theo cookie `locale` như trang công khai; tiêu đề tab "Đăng nhập HR | CV AI Scanner".
+- Form: Email, Mật khẩu (ẩn ký tự), nút **Đăng nhập**; song ngữ VI / EN theo cookie `locale` như trang công khai; tiêu đề tab "Đăng nhập HR · CV AI Scanner" (cùng mẫu `%s · CV AI Scanner` của các trang khác).
 - Kiểm tra phía trình duyệt: email trống / sai định dạng, mật khẩu trống → báo lỗi ngay dưới ô, không gọi API.
 - Đang gửi: nút bị khoá, hiện "Đang đăng nhập…".
 - Trang có `<meta name="robots" content="noindex">` (cả khu vực `/hr`).
@@ -194,15 +195,14 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): Gherkin + unit cho fr
 
 | AC | Test |
 |----|------|
-| AC-1 → AC-4 | backend `auth.service.spec.ts`, `login-attempts.spec.ts` · HTTP spec `auth.http.spec.ts` (cookie flags, 401 / 429, `Retry-After`) |
-| AC-5, AC-6 | `auth.http.spec.ts` (Nest app thật + guard, Prisma mock): không cookie, chữ ký sai, hết hạn, user bị khoá, logout |
-| AC-7 | `auth.config.spec.ts` (thiếu / ngắn `JWT_SECRET` → lỗi khi khởi tạo module) |
-| AC-8 | `users.service.spec.ts` (validation, 409, tự xoá / tự khoá) · `users.http.spec.ts` (`/api/users` 404, `/api/hr/users` cần đăng nhập, không có `passwordHash`) |
-| AC-9, AC-10 | frontend `src/app/hr/login/__tests__/hr-login.feature` + unit form |
-| AC-11 → AC-13 | `src/app/hr/__tests__/hr-session.feature` (chuyển hướng, `next` an toàn, đăng xuất, 401 giữa chừng) · unit cho hàm kiểm `next` |
-| AC-14 | các test trang công khai hiện có vẫn pass |
-| Chạy thật | `tasks.md`: đăng nhập bằng tài khoản seed qua proxy Next.js, cookie trên trình duyệt, 5 lần sai → 429, khoá tài khoản giữa phiên |
-
+| AC-1 → AC-4 | backend `auth/auth.service.spec.ts` (đăng nhập, lỗi, thời gian khi email lạ, chặn sau 5 lần), `auth/login-attempts.service.spec.ts` (cửa sổ 15 phút, reset, khác email / IP) · HTTP spec `auth/hr-auth.http.spec.ts` (thuộc tính cookie, `Secure` ở production, 401 / 400 / 415 / 429 + `Retry-After`) |
+| AC-5, AC-6 | `auth/hr-auth.http.spec.ts` (Nest app thật + guard toàn cục, bảng `users` giả trong bộ nhớ): `/me`, logout, không cookie, token rác / bị sửa / sai khoá / hết hạn, tài khoản bị khoá giữa phiên, API công khai |
+| AC-7 | `auth/auth.config.spec.ts` (thiếu / rỗng / ngắn `JWT_SECRET`) |
+| AC-8 | `users/users.service.spec.ts` (validation, 409, 404, chỉ đổi field gửi lên, hash lại mật khẩu, tự xoá / tự khoá) · `auth/hr-auth.http.spec.ts` (`/api/users` 404, `/api/hr/users` cần đăng nhập, không có `passwordHash`, 415 khi không phải JSON) |
+| AC-9, AC-10, AC-11 (trang đăng nhập) | frontend `src/app/hr/login/__tests__/hr-login.feature` (form, kiểm phía trình duyệt, nút bị khoá, `next` an toàn, các lỗi, thông báo hết hạn, đã đăng nhập) |
+| AC-11 → AC-13 | `src/app/hr/__tests__/hr-session.feature` (cookie hết hạn / tài khoản khoá, header HR, đăng xuất, backend lỗi, `hrFetch` gặp 401) · unit `src/lib/hr-paths.spec.ts` (`safeNextPath`, `loginUrl`), `src/proxy.spec.ts` (chuyển hướng khi không cookie, `no-store`, `noindex`) |
+| AC-14 | các test trang công khai (đã chuyển vào `src/app/(public)/`) vẫn pass, nội dung không đổi |
+| Chạy thật | [tasks.md](./tasks.md): qua bản build production của Next.js → backend dev, tài khoản seed |
 ---
 
 ## Quyết định (2026-11-07)
@@ -225,3 +225,14 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): Gherkin + unit cho fr
 - **Đổi mật khẩu không vô hiệu hoá phiên cũ** trong MVP (JWT không lưu phiên); khoá tài khoản thì có (guard đọc `is_active` ở mỗi request).
 - **Bộ đếm đăng nhập sai nằm trong bộ nhớ:** khi chạy nhiều instance trên Azure cần chuyển sang nơi dùng chung (Redis / DB) — ghi vào Phase 5.
 - **IP sau proxy:** frontend gọi backend qua Next.js rewrites, nên backend thấy IP của Next.js. Cần đọc `X-Forwarded-For` từ proxy tin cậy (Next.js) thì bộ đếm theo IP mới đúng; kiểm khi làm.
+
+### Phát hiện khi làm
+
+- **`@nestjs/jwt` 12.x chỉ có bản ESM**, Jest (CommonJS) của backend không nạp được → dùng **11.0.2** (CommonJS, cùng API). `npm audit` không đổi (102 lỗ hổng có sẵn).
+- **Khu vực `/hr` cần header riêng:** các trang công khai chuyển vào route group `src/app/(public)/` (layout có header / footer công khai); `src/app/layout.tsx` chỉ còn `<html>` + i18n. URL không đổi; test của trang công khai chuyển theo, chỉ sửa đường dẫn import.
+- **Next.js 16 dùng `src/proxy.ts`** (tên mới của middleware) để chặn `/hr/*` khi không có cookie và truyền đường dẫn hiện tại (`x-hr-path`) cho layout, vì layout không biết pathname.
+- **Layout chỉ chạy lại khi tải trang / `router.refresh()`**: khi chuyển giữa các trang con của `/hr` ở phía trình duyệt, layout không kiểm lại phiên. Không lộ dữ liệu vì mọi dữ liệu HR đi qua `/api/hr/*` (backend kiểm cookie mỗi lần) và `hrFetch` đưa về trang đăng nhập khi gặp 401 (AC-13). Các trang 3.2 cũng gọi `getHrSession()` / API phía server.
+- **Đăng xuất chỉ xoá cookie**: JWT là stateless nên token đã bị sao chép vẫn dùng được tới khi hết hạn (tối đa 8 giờ) hoặc tài khoản bị khoá / đổi `JWT_SECRET`.
+- **IP sau proxy:** backend đặt `trust proxy` = `loopback, linklocal, uniquelocal` và Next.js chuyển tiếp `X-Forwarded-For`. Trên máy local (người gọi cũng là loopback), giá trị `X-Forwarded-For` tự đặt sẽ được tin nên bộ đếm theo IP vượt qua được; trên Azure, IP thật do ingress thêm vào là địa chỉ public đầu tiên không được tin, phần giả mạo phía trước bị bỏ qua. Bộ đếm theo **email + IP** không chặn việc thử nhiều email từ một IP (password spraying) — cân nhắc thêm giới hạn theo IP ở Phase 5.
+- **Tiêu đề tab** theo mẫu sẵn có `%s · CV AI Scanner` (không dùng `|`).
+

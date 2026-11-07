@@ -1,12 +1,12 @@
 import { join } from 'path';
 import { screen } from '@testing-library/react';
 import { defineFeature, loadFeature } from 'jest-cucumber';
-import { list } from '../../../test-utils/fixtures';
-import { mockRequest, resetMockRequest } from '../../../test-utils/next-headers.mock';
-import { renderPage } from '../../../test-utils/render-page';
+import { list } from '../../../../test-utils/fixtures';
+import { mockRequest, resetMockRequest } from '../../../../test-utils/next-headers.mock';
+import { renderPage } from '../../../../test-utils/render-page';
 import PrivacyPage from '../page';
 
-jest.mock('next/headers', () => require('../../../test-utils/next-headers.mock'));
+jest.mock('next/headers', () => require('../../../../test-utils/next-headers.mock'));
 
 const feature = loadFeature(join(__dirname, 'privacy.feature'));
 
