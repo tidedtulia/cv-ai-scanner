@@ -51,6 +51,7 @@ npm run n8n:up        # db + n8n-init (database n8n, roles, grants) + n8n (recre
 npm run n8n:check     # smoke-check: roles / grants / owner / credentials / timezone (read-only)
 npm run docker:check  # azure-deploy: builds the 3 images, runs them with a throw-away Postgres (non-superuser admin), checks health / proxy / n8n / migrate / init-db / no secret in logs (~10 min, Docker)
 npm run bicep:check   # azure-deploy: az bicep build + lint + static rules (backend internal, n8n min 1, no secret, …); needs `az bicep install`
+npm run drive:auth    # Google Drive one-time OAuth: prints GOOGLE_REFRESH_TOKEN + GOOGLE_DRIVE_CV_FOLDER_ID for .env (Node >= 22: `nvm use` first; needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in .env)
 npm run mail:check    # result email: SMTP login + one test email to the address given, MAIL_REDIRECT_TO or SMTP_USER (never a candidate)
 npm run mcp:check     # MCP server (/mcp/cv-scanner): auth, tool list, get_position_requirements, injection, no candidate data
 npm run wf1:test      # WF-1 scoring Code node (runs the code inside n8n/workflows/cvScannerWf1.json; free)
