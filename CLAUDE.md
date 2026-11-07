@@ -65,7 +65,7 @@ npm run n8n:down      # stop n8n only; `npm run db:down` stops everything (data 
 - CV storage: `CV_STORAGE=local` (files in `tmp/cv-uploads`) for dev, `google-drive` for real — setup in `docs/features/submit-application-api/google-drive-setup.md`. The backend refuses to start without a valid `CV_STORAGE`.
 - Nx loads the root `.env` into every project, so `PORT=3001` (backend) also reaches Next.js — the frontend targets pin `--port 3000` for that reason.
 - HR sign-in: the backend needs `JWT_SECRET` (≥ 32 chars) and refuses to start without it. Every `/api/hr/*` route is protected by the global `HrAuthGuard` (session = JWT in the httpOnly cookie `cvs_hr_session`); `@nestjs/jwt` stays on 11.x because 12.x is ESM-only and breaks Jest. Details: `docs/features/hr-auth/`.
-- Frontend routes: public pages live in the route group `src/app/(public)/` (its layout has the public header / footer), the HR area in `src/app/hr/` (`login/` + `(protected)/`, whose layout checks the session with `GET /api/auth/me`). `src/proxy.ts` (Next.js 16 name of middleware) redirects `/hr/*` without a cookie and sets `no-store` / `noindex`. Server Components read the HR API with `hrBackendGet` (`src/lib/hr-backend.ts`, forwards the cookie, 401 → sign-in page); the HR list state lives in the URL (`src/lib/hr-list-url.ts`). Browser calls to `/api/hr/*` go through `hrFetch` (`src/lib/hr-client.ts`), which sends a 401 back to the sign-in page.
+- Frontend routes: public pages live in the route group `src/app/(public)/` (its layout has the public header / footer), the HR area in `src/app/hr/` (`login/` + `(protected)/`, whose layout checks the session with `GET /api/auth/me`). `src/proxy.ts` (Next.js 16 name of middleware) redirects `/hr/*` without a cookie and sets `no-store` / `noindex`. Server Components read the HR API with `hrBackendGet` (`src/lib/hr-backend.ts`, forwards the cookie, 401 → sign-in page); the HR list state lives in the URL (`src/lib/hr-list-url.ts`). HR forms call the API with `hrRequest` (JSON, on top of `hrFetch`) and show the API error `code` in the UI language (`src/lib/hr-errors.ts`; the code → text maps must cover every key of `HR_POSITION_MESSAGES`, checked by a test). Browser calls to `/api/hr/*` go through `hrFetch` (`src/lib/hr-client.ts`), which sends a 401 back to the sign-in page.
 - Frontend: the browser calls `/api/*` on the Next.js origin, rewritten to `BACKEND_URL` (default `http://localhost:3001`, see `packages/frontend/next.config.js`). Public pages are bilingual: UI texts live in `packages/frontend/src/i18n/dictionaries/{en,vi}.ts` (same shape, checked by a test).
 - Prisma config lives in `packages/backend/prisma.config.ts`; migrations in `packages/backend/prisma/migrations/` are committed. Database design: `docs/database.md`.
 
@@ -100,7 +100,7 @@ Every feature has its own branch (`feature/<name>`) and folder `docs/features/<n
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cv-ai-scanner** (2189 symbols, 4059 relationships, 120 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cv-ai-scanner** (2765 symbols, 5961 relationships, 227 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

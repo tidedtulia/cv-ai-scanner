@@ -1,19 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { IHrSessionUser } from '@org/shared';
 import { format } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18nProvider';
 import { clientApi } from '../../lib/client-api';
 import { HR_HOME, HR_LOGIN } from '../../lib/hr-paths';
+
+/** Menu of the HR area; a page is current for its own path and the ones below it (applications: also /hr/applications/...) */
+const MENU = [
+  { key: 'applications', href: HR_HOME, match: (path: string) => path === HR_HOME || path.startsWith('/hr/applications') },
+  { key: 'positions', href: '/hr/positions', match: (path: string) => path.startsWith('/hr/positions') },
+  { key: 'catalog', href: '/hr/catalog', match: (path: string) => path.startsWith('/hr/catalog') },
+] as const;
 import { LanguageSwitcher } from '../layout/LanguageSwitcher';
 
 /** Header of the HR area: project name + "HR", the signed-in HR and Sign out (only when signed in), VI | EN (hr-auth AC-12). */
 export function HrHeader({ user }: { user?: IHrSessionUser }) {
   const { dict } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
 
   const logout = async () => {
@@ -35,6 +43,15 @@ export function HrHeader({ user }: { user?: IHrSessionUser }) {
           <span className="rounded bg-blue-600 px-1.5 py-0.5 text-xs font-semibold text-white">{dict.hr.areaName}</span>
         </Link>
         <div className="flex items-center gap-4 text-sm text-gray-600">
+          {user && (
+            <nav aria-label={dict.hrNav.label} className="flex items-center gap-4 font-medium">
+              {MENU.map((item) => (
+                <Link key={item.key} href={item.href} aria-current={item.match(pathname) ? 'page' : undefined} className={item.match(pathname) ? 'text-blue-700' : 'text-gray-600 hover:text-gray-900'}>
+                  {dict.hrNav[item.key]}
+                </Link>
+              ))}
+            </nav>
+          )}
           {user && (
             <>
               <span data-testid="hr-user">{format(dict.hr.header.signedInAs, { name: user.name })}</span>

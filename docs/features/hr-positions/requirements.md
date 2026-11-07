@@ -239,3 +239,15 @@ Theo [CLAUDE.md — Feature workflow](../../../CLAUDE.md): Gherkin + unit cho fr
 - Trang công khai và tool MCP đọc thẳng DB (không cache), nên thay đổi có hiệu lực ngay.
 - Sinh mã: bỏ dấu bằng `normalize('NFD')`, `đ → d`; kiểm trùng trong cùng transaction với lúc ghi và bắt lỗi `P2002` để tránh hai HR tạo cùng lúc.
 - Đổi chỗ tiêu chí chạy trong transaction; khi nhiều tiêu chí trùng `sortOrder` (dữ liệu seed cũ) thì chuẩn hoá lại `sortOrder` theo bước 10 trước khi đổi.
+
+### Phát hiện khi làm
+
+- **Sinh mã trong shared:** `positionCodeFromTitle` / `catalogCodeFromName` nằm ở `@org/shared` (`slug.utils`) nên form tạo job hiện gợi ý mã đúng bằng thuật toán của backend ("Lập trình viên Backend" → `lap-trinh-vien-backend`).
+- **Trùng mã khi hai HR tạo cùng lúc:** backend thử mã kế tiếp (`-2`, `-3`…) khi gặp lỗi unique thay vì chỉ kiểm tra trước; mã gõ tay mà trùng thì trả 409 `CODE_TAKEN`.
+- **`HAS_APPLICATIONS` chỉ khi có thay đổi thật** ở level, số năm hoặc JD (gửi lại giá trị cũ không cảnh báo); mọi thao tác trên tiêu chí của job có đơn đều kèm cảnh báo.
+- **Đổi thứ tự tiêu chí chuẩn hoá lại `sortOrder`** theo bước 10 trong cùng transaction, vì dữ liệu seed cũ có thể có nhiều tiêu chí cùng `sortOrder` (đổi chỗ sẽ không thấy gì).
+- **Tiêu chí cuối của job `OPEN`** kiểm trong transaction xoá (không chỉ ở giao diện), nên hai HR cùng xoá hai tiêu chí cuối không lách được.
+- **Nhóm / level đã ẩn vẫn dùng được cho job đã có nó:** form hiện "(đã ẩn)" và backend chấp nhận khi `categoryCode` / `levelCode` không đổi.
+- **Không cần đụng trang công khai và MCP:** API công khai và câu SQL của tool MCP đã lọc `is_active` và `status = OPEN`; đã kiểm thật: ẩn nhóm thì nhóm rời bộ lọc `/jobs` nhưng job giữ tên nhóm; tool MCP thấy tiêu chí mới ngay lần gọi sau.
+- **Xoá job dựa vào khoá ngoại:** `applications.position_id` là `RESTRICT` nên nếu một đơn mới đến giữa lúc kiểm tra và lúc xoá, backend bắt lỗi khoá ngoại và trả 409 `POSITION_HAS_APPLICATIONS`.
+

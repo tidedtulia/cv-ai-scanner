@@ -354,7 +354,7 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 **Phase 3 — Trang HR**
 - [x] 3.1 Auth HR (login, JWT cookie httpOnly, guard `/api/hr/*`, chống dò mật khẩu, `/api/hr/users`, trang `/hr/login` + khung `/hr`) — [features/hr-auth](./features/hr-auth/)
 - [x] 3.2 Danh sách (4 tab, lọc / tìm / sắp xếp trong URL) + chi tiết + xem CV (backend trả PDF, nhúng trong trang) + quyết định + đánh giá lại — [features/hr-applications](./features/hr-applications/)
-- [ ] 3.3 Quản lý job & tiêu chí; quản lý danh mục nhóm vị trí & level
+- [x] 3.3 Quản lý job & tiêu chí; quản lý danh mục nhóm vị trí & level — [features/hr-positions](./features/hr-positions/)
 
 **Phase 4 — Email kết quả (backend)**
 - [ ] Module `mail` (SMTP) + 2 mẫu email (ACCEPTED / REJECTED)
@@ -409,6 +409,7 @@ Mỗi feature có branch riêng và thư mục riêng `docs/features/<feature>/`
 | D31 | 2026-11-07 | WF-1 (`cvScannerWf1`): 00:00 giờ VN + chạy tay; AI Agent **đọc PDF trực tiếp** + tool MCP + Structured Output Parser, model **`claude-sonnet-5-5`** (Q5); n8n kiểm đủ tiêu chí và tự tính điểm / khuyến nghị (công thức §7). CV tải bằng credential Google Drive tạo từ `.env` (refresh token của backend); khoá Anthropic từ `ANTHROPIC_API_KEY`. Kiểm bằng `npm run wf1:test` / `wf1:check`. |
 | D32 | 2026-11-07 | Trang HR (Phase 3) chia 3 feature: 3.1 đăng nhập, 3.2 đơn ứng tuyển, 3.3 quản lý job / danh mục. Phiên HR: **JWT trong cookie httpOnly** `cvs_hr_session` (SameSite=Lax, 8 giờ, `@nestjs/jwt`, khoá `JWT_SECRET`); guard toàn cục cho mọi `/api/hr/*`; sai 5 lần / 15 phút theo email + IP thì chặn 15 phút; `/api/users` chuyển thành `/api/hr/users`. **1 vai trò HR** (Q6). HR xem CV qua **backend trả file PDF** (Q11). Trang HR song ngữ vi / en. |
 | D33 | 2026-11-07 | Đơn ứng tuyển cho HR (3.2): `/hr` là danh sách với **4 tab** (Cần quyết định mặc định, xếp điểm cao trước), chi tiết ở `/hr/applications/[id]` có CV nhúng. **Quyết định chốt luôn** (ACCEPTED / REJECTED là trạng thái cuối, chỉ từ EVALUATED / EVALUATION_FAILED, có hộp thoại xác nhận); ghi chú không bắt buộc, tối đa 2000 ký tự; cập nhật trạng thái theo kiểu so sánh-và-ghi (HR và n8n không ghi đè nhau). Đánh giá lại giữ kết quả cũ tới khi WF-1 ghi đè. Email kết quả để Phase 4. |
+| D34 | 2026-11-07 | Quản lý job / tiêu chí / danh mục cho HR (3.3): job tạo ra luôn là **DRAFT**, mở cần ≥ 1 tiêu chí; trạng thái chuyển **tự do** DRAFT / OPEN / CLOSED (đóng thì link ứng tuyển đã chia sẻ ngừng nhận đơn); sửa job / tiêu chí **được phép kể cả khi đã có đơn, kèm cảnh báo** (kết quả đã chấm giữ nguyên nhờ snapshot, đơn chưa chấm dùng nội dung mới); **job chưa có đơn thì xoá được**, nhóm / level **chỉ ẩn**; mã (code) tự sinh từ tên (bỏ dấu tiếng Việt) và **không đổi** sau khi tạo; tiêu chí đổi thứ tự bằng nút Lên / Xuống. Không cần migration. |
 
 ---
 

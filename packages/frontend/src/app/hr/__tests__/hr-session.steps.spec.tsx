@@ -66,7 +66,7 @@ defineFeature(feature, (test) => {
     signedInAs(and);
     whenOpen(when);
     then(/^the header shows "(.*)" with the badge "(.*)"$/, (site: string, badge: string) => {
-      const home = within(header()).getByRole('link');
+      const home = within(header()).getAllByRole('link')[0];
       expect(home.getAttribute('href')).toBe('/hr');
       expect(home.textContent).toBe(`${site}${badge}`);
     });

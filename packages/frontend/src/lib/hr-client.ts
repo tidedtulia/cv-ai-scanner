@@ -22,3 +22,20 @@ export async function hrFetch(input: string, init?: RequestInit): Promise<Respon
   }
   return response;
 }
+
+export interface HrApiResult<T = unknown> {
+  ok: boolean;
+  status: number;
+  /** Parsed JSON body (the data on success, `{ code, message, … }` on an error); {} when there is none */
+  body: T & { code?: string; applicationCount?: number };
+}
+
+/** JSON call to the HR API from the browser: sends JSON, parses the answer; a 401 goes to the sign-in page (hrFetch) */
+export async function hrRequest<T = unknown>(method: string, url: string, data?: unknown): Promise<HrApiResult<T>> {
+  const response = await hrFetch(url, {
+    method,
+    ...(data === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  });
+  const body = (await response.json().catch(() => ({}))) as HrApiResult<T>['body'];
+  return { ok: response.ok, status: response.status, body };
+}

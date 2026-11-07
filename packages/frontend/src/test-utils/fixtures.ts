@@ -121,3 +121,31 @@ export const hrDetail = (over: Record<string, unknown> = {}) => ({
   canReEvaluate: true,
   ...over,
 });
+
+// ---- HR positions / catalog (hr-positions) ----
+
+export const hrJob = (over: Record<string, unknown> = {}) => ({
+  id: '5d0c9a3e-1b2c-4d3e-8f4a-5b6c7d8e9f01',
+  code: 'backend-dev',
+  title: 'Backend Developer',
+  category: { code: 'DEVELOPER', name: 'Developer' },
+  level: { code: 'MIDDLE', name: 'Middle' },
+  minYearsExperience: 2,
+  status: 'OPEN',
+  criteriaCount: 3,
+  applicationCount: 4,
+  createdAt: '2026-11-01T00:00:00.000Z',
+  updatedAt: '2026-11-06T17:30:00.000Z', // 07/11/2026 in Vietnam
+  ...over,
+});
+
+export const hrCatalogItem = (over: Record<string, unknown> = {}) => ({ id: 'cat-1', code: 'DEVELOPER', name: 'Developer', sortOrder: 10, isActive: true, positionCount: 2, ...over });
+
+export const hrCriterion = (over: Record<string, unknown> = {}) => ({ id: 'c1', name: 'NestJS', type: 'TECHNICAL', description: '≥ 2 years in production', weight: 5, isRequired: true, sortOrder: 10, ...over });
+
+export const hrJobDetail = (over: Record<string, unknown> = {}) => ({
+  ...hrJob(),
+  description: '## About the role\nBuild APIs.',
+  criteria: [hrCriterion(), hrCriterion({ id: 'c2', name: 'PostgreSQL', weight: 4, isRequired: false, description: null, sortOrder: 20 }), hrCriterion({ id: 'c3', name: 'English', type: 'LANGUAGE', weight: 1, isRequired: false, description: 'B1', sortOrder: 30 })],
+  ...over,
+});

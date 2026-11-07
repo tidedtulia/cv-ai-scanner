@@ -6,7 +6,12 @@ export const mockRouter = { push: jest.fn(), replace: jest.fn(), refresh: jest.f
 
 export const useRouter = () => mockRouter;
 
+/** Path usePathname() answers in tests (the HR menu marks the current page) */
+export const mockPathname = { value: '/hr' };
+export const usePathname = () => mockPathname.value;
+
 export function resetMockRouter() {
+  mockPathname.value = '/hr';
   mockRouter.push.mockReset();
   mockRouter.replace.mockReset();
   mockRouter.refresh.mockReset();
