@@ -64,12 +64,14 @@ export MCP_AUTH_TOKEN=$(openssl rand -hex 32)
 export N8N_ENCRYPTION_KEY=$(openssl rand -hex 32)
 export N8N_OWNER_PASSWORD="Aa1$(openssl rand -hex 12)"      # n8n: 8-64 ký tự, có số và chữ hoa
 export SEED_HR_PASSWORD="Hr1!$(openssl rand -hex 10)"       # mật khẩu HR đầu tiên (đổi sau khi đăng nhập)
-# những giá trị bạn đã có (nhập, không hiện lên màn hình):
-read -rs -p "ANTHROPIC_API_KEY: " ANTHROPIC_API_KEY; export ANTHROPIC_API_KEY; echo
-read -rs -p "GOOGLE_CLIENT_ID: " GOOGLE_CLIENT_ID; export GOOGLE_CLIENT_ID; echo
-read -rs -p "GOOGLE_CLIENT_SECRET: " GOOGLE_CLIENT_SECRET; export GOOGLE_CLIENT_SECRET; echo
-read -rs -p "GOOGLE_REFRESH_TOKEN (mới, sau khi xuất bản): " GOOGLE_REFRESH_TOKEN; export GOOGLE_REFRESH_TOKEN; echo
-read -rs -p "SMTP_PASSWORD (Gmail App Password): " SMTP_PASSWORD; export SMTP_PASSWORD; echo
+# những giá trị bạn đã có (nhập, không hiện lên màn hình). Hàm này chạy được ở cả bash lẫn zsh
+# (không dùng `read -p`: trong zsh `-p` có nghĩa khác):
+ask() { printf '%s: ' "$1"; stty -echo; read -r _v; stty echo; echo; export "$1=$_v"; unset _v; }
+ask ANTHROPIC_API_KEY
+ask GOOGLE_CLIENT_ID
+ask GOOGLE_CLIENT_SECRET
+ask GOOGLE_REFRESH_TOKEN      # token mới nhất, sau khi chạy npm run drive:auth
+ask SMTP_PASSWORD             # Gmail App Password
 ```
 
 **Cách B: dùng lại các giá trị trong `.env` của dev** (chạy ở máy có file `.env`, không in giá trị ra màn hình; không dùng được trong Cloud Shell vì `.env` không ở đó):
