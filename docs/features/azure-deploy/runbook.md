@@ -232,9 +232,18 @@ App: deploy lại với tag cũ (`export IMAGE_TAG=<tag cũ>` rồi chạy `az d
 
 Đặt lại biến môi trường rồi chạy lại `az deployment group create` (mục 4). Riêng: `N8N_ENCRYPTION_KEY` **không đổi được**; mật khẩu DB của role `n8n` / `n8n_app` / `mcp_readonly` phải chạy lại bước 3.3 với mật khẩu mới **trước** khi deploy; `POSTGRES_ADMIN_PASSWORD` đổi bằng `az postgres flexible-server update -g $RG -n <tên server> --admin-password ...` rồi deploy lại.
 
-### 6.5 Đổi IP được vào n8n / IP chạy lệnh DB
+### 6.5 IP của bạn đã đổi (PostgreSQL và editor n8n)
 
-Sửa `n8nAllowedCidr` / `adminIp` trong `main.bicepparam` và chạy lại mục 4. Xoá `adminIp` (để rỗng) khi không cần nữa — firewall đó sẽ bị gỡ ở lần deploy sau.
+Nhà mạng cấp IP khác theo thời gian. Khi đó `psql` / `docker run … psql` báo `Connection refused` (hoặc timeout) và editor n8n không mở được. Cập nhật cả hai nơi (không cần deploy lại Bicep):
+
+```bash
+export MY_IP=$(curl -s https://api.ipify.org); echo $MY_IP
+PGSERVER=$(az deployment group show -g $RG -n main --query properties.outputs.postgresName.value -o tsv)
+az postgres flexible-server firewall-rule update -g $RG -n $PGSERVER --rule-name AdminIp --start-ip-address $MY_IP --end-ip-address $MY_IP
+az containerapp ingress access-restriction set -g $RG -n $CVS_PREFIX-n8n --rule-name allow-0 --ip-address $MY_IP/32 --action Allow
+```
+
+Rồi sửa luôn `adminIp` và `n8nAllowedCidr` trong `infra/azure/main.bicepparam`: nếu không, lần chạy Bicep kế tiếp sẽ đặt lại IP cũ. Xoá `adminIp` (để rỗng) khi không cần chạy lệnh DB từ máy bạn nữa.
 
 ### 6.6 Sao lưu và khôi phục DB
 
