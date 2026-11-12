@@ -1,5 +1,5 @@
 # Test → build → deploy to Azure when a PR is merged into main (docs/features/auto-deploy).
-#  - pull request: tests only (no image push, no Azure access, also for forks)
+#  - it runs ONLY on main: nothing runs when a pull request is opened or updated (no pull_request trigger)
 #  - push to main (= a merge), unless only docs changed: test → build 3 images → scan → push to ghcr.io → deploy
 #  - run by hand with a `tag`: deploy an image that already exists (roll back); without a tag: like a push to main
 # A newer run CANCELS the test / build of an older one; the deploy of an older run is NEVER interrupted (it could stop a
@@ -13,8 +13,6 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
-  pull_request:
-    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -32,11 +30,11 @@ env:
 
 jobs:
   test:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.tag == '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
-      group: ci-${{ github.event.pull_request.number || github.ref }}
+      group: ci-${{ github.ref }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -70,14 +68,14 @@ jobs:
 
   build:
     needs: test
-    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.tag == '') }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.tag == '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: read
       packages: write
     concurrency:
-      group: ci-${{ github.event.pull_request.number || github.ref }}
+      group: ci-${{ github.ref }}
       cancel-in-progress: true
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
@@ -148,7 +146,7 @@ jobs:
   deploy:
     needs: build
     # `build` is skipped when a tag is given by hand, so the condition names both cases
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 240
     environment: production

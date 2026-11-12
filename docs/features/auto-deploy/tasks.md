@@ -33,6 +33,10 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md)
 - [ ] Merge thật: workflow xanh, trang chạy bản mới; merge hai lần liên tiếp (build cũ bị huỷ, deploy xếp hàng); kịch bản quay lui (chạy tay với tag cũ)
 - [ ] Chưa kiểm chứng ngoài Azure / GitHub: quyền Contributor ở cấp resource group đủ cho `az containerapp update` và job; `az containerapp job execution show` trả `Succeeded` đúng như script chờ; tên revision `r<tag>-HHMMSS` được Azure chấp nhận; thời gian job `cvs-migrate` trên B1ms
 
+## Điều chỉnh sau lần chạy đầu (2026-11-12)
+
+- [x] Theo yêu cầu của bạn: workflow **chỉ chạy trên `main` sau khi merge**, bỏ trigger `pull_request` (nhánh `fix/main-only`); `workflow-check` đòi không có `pull_request`, test / build / deploy đều giới hạn ở `refs/heads/main`, nhóm concurrency là `ci-<ref>`
+
 ## Lần chạy thật đầu tiên (2026-11-12, run #2 của PR #11)
 
 - [x] `test` xanh (1 phút 19 giây; lint báo lỗi nhưng không chặn, đúng thiết kế), `build` xanh (5 phút 22 giây, 3 image đã đẩy lên `ghcr.io`)
