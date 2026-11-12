@@ -37,10 +37,10 @@ Bối cảnh: [azure-deploy](../azure-deploy/requirements.md) (hiện bạn buil
 |---------|------|--------|
 | push vào `main` (tức PR được merge), có đổi file ngoài `docs/**` và `*.md` | `test` → `build` → `deploy` | **Có** |
 | push vào `main` chỉ đổi `docs/**` / `*.md` | không chạy | không |
-| mở / cập nhật PR vào `main` (cả PR từ fork) | chỉ `test` (không đẩy image, không có quyền Azure) | không |
+| mở / cập nhật PR | **không chạy gì** (không có trigger `pull_request`; quyết định 2026-11-12: chỉ chạy trên `main` sau khi merge) | không |
 | chạy tay (**Run workflow**) kèm ô `tag` (tuỳ chọn) | có `tag`: bỏ qua test và build, **deploy lại image `tag` đã có** (quay lui); không có `tag`: như push vào `main` | có, chỉ từ nhánh `main` |
 
-- Không dùng `pull_request_target`; PR từ fork không bao giờ chạm bí mật hoặc Azure.
+- Không dùng `pull_request` lẫn `pull_request_target`: PR (kể cả từ fork) không kích hoạt gì, nên không bao giờ chạm bí mật hoặc Azure. Đổi lại, test chỉ chạy **sau** khi merge (code lỗi vẫn vào `main` nhưng bị chặn ở cổng `test`, không build, không deploy).
 
 #### AC-2: Cổng kiểm tra (job `test`)
 
@@ -146,7 +146,7 @@ Bối cảnh: [azure-deploy](../azure-deploy/requirements.md) (hiện bạn buil
 
 - **Vì sao deploy không bị huỷ:** mình từng thấy database `n8n` dở dang vì lần khởi tạo bị ngắt. `cancel-in-progress` ở bước deploy có thể ngắt migrate hoặc cập nhật n8n giữa chừng, nên chỉ huỷ phần build và test (không có tác dụng phụ).
 - **`concurrency` ở mức job:** GitHub giữ tối đa **một** chạy và **một** đang chờ mỗi nhóm; cái chờ cũ bị thay bằng cái mới hơn. Đúng cho yêu cầu "chỉ bản mới nhất".
-- **PR từ fork** chỉ chạy `test` (không có `id-token`, không có `packages: write`).
+- **Không chạy khi mở PR** (bỏ `pull_request`, 2026-11-12): trước đó mỗi PR chạy thêm một lượt test (Deploy #1, #3); nay chỉ chạy một lần sau khi merge. Muốn kiểm tra trước khi merge thì chạy `npm test` / `npm run workflow:check` trên máy.
 - **Tag `sha-…`** giúp tìm commit của một image; Container Apps ghi tag ngày trong tên revision.
 - **Chạy lại Bicep bằng tay** vẫn được; luôn đặt `IMAGE_TAG=$(sh scripts/deploy/current-tag.sh --backend)` (AC-8), vì Bicep là nguồn cấu hình: nếu không, app quay về tag trong tham số.
 - **Chi phí:** GitHub Actions trên repo public miễn phí; việc deploy không tạo tài nguyên Azure mới (chỉ revision mới).

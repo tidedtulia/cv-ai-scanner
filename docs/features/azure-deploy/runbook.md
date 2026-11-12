@@ -204,7 +204,7 @@ Rồi làm bằng tay:
 
 ### 6.1 Cập nhật phiên bản mới (tự động khi merge)
 
-Từ khi có [auto-deploy](../auto-deploy/requirements.md): **merge PR vào `main` là xong**. Workflow **Deploy** (`.github/workflows/deploy.yml`) chạy test, build 3 image, quét, đẩy lên `ghcr.io`, rồi cập nhật Azure theo thứ tự: migrate (job `cvs-migrate`) → backend → frontend → kiểm tra `/api/health/ready` (không đạt thì tự đưa backend và frontend về tag cũ) → n8n (chỉ ngoài khung giờ 23:50–02:00). Merge chỉ đổi `docs/` hoặc `*.md` thì không chạy. Xem kết quả: GitHub → **Actions → Deploy** (trang tóm tắt có bảng tag trước / sau).
+Từ khi có [auto-deploy](../auto-deploy/requirements.md): **merge PR vào `main` là xong**. Workflow **Deploy** (`.github/workflows/deploy.yml`) chạy test, build 3 image, quét, đẩy lên `ghcr.io`, rồi cập nhật Azure theo thứ tự: migrate (job `cvs-migrate`) → backend → frontend → kiểm tra `/api/health/ready` (không đạt thì tự đưa backend và frontend về tag cũ) → n8n (chỉ ngoài khung giờ 23:50–02:00). Merge chỉ đổi `docs/` hoặc `*.md` thì không chạy; **mở PR không chạy gì** (workflow chỉ chạy trên `main` sau khi merge, nên hãy chạy `npm test` trên máy trước khi merge). Xem kết quả: GitHub → **Actions → Deploy** (trang tóm tắt có bảng tag trước / sau).
 
 - **Có merge mới khi đang chạy:** build và test của lần cũ bị huỷ; **deploy đang chạy không bị ngắt** (bản mới xếp hàng chờ, chỉ giữ bản mới nhất).
 - **Quay lui:** Actions → Deploy → **Run workflow** → nhập `tag` cũ (xem tag đang chạy bằng `sh scripts/deploy/current-tag.sh`). Migration không tự quay lui.

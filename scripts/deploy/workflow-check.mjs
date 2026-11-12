@@ -31,12 +31,11 @@ const stepIndex = (job, predicate) => (job.steps ?? []).findIndex(predicate);
 section('AC-1 — when it runs');
 check(JSON.stringify(on.push?.branches) === '["main"]', 'push: only the branch main (a merge)');
 check(['docs/**', '**/*.md'].every((p) => on.push?.['paths-ignore']?.includes(p)), 'push: docs/** and *.md alone do not run it (paths-ignore)');
-check(JSON.stringify(on.pull_request?.branches) === '["main"]', 'pull_request into main runs the tests');
+check(!('pull_request' in on), 'no pull_request trigger: nothing runs when a pull request is opened (only after the merge, on main)');
 check(on.workflow_dispatch?.inputs?.tag !== undefined && on.workflow_dispatch.inputs.tag.required !== true, 'manual run with an optional `tag` (roll back)');
 check(!('pull_request_target' in on), 'no pull_request_target (a fork can never reach secrets or Azure)');
-check(Object.keys(on).sort().join() === 'pull_request,push,workflow_dispatch', 'no other trigger', Object.keys(on).join());
-check(/github\.event_name != 'pull_request'/.test(build.if) && /github\.event_name != 'pull_request'/.test(deploy.if), 'a pull request never builds an image or deploys');
-check(/refs\/heads\/main/.test(build.if) && /refs\/heads\/main/.test(deploy.if), 'build and deploy only from main');
+check(Object.keys(on).sort().join() === 'push,workflow_dispatch', 'only push (to main) and workflow_dispatch', Object.keys(on).join());
+check([test, build, deploy].every((job) => /refs\/heads\/main/.test(job.if)), 'test, build and deploy only from main (a manual run on another branch does nothing)');
 check(/inputs\.tag == ''/.test(test.if) && /inputs\.tag == ''/.test(build.if) && /inputs\.tag != ''/.test(deploy.if), 'a manual run with a tag skips test and build and only deploys');
 
 section('AC-2 — the gate (job test)');
@@ -63,7 +62,7 @@ check(build.outputs?.tag !== undefined, 'build exposes the tag to deploy');
 
 section('AC-4 — concurrency');
 for (const [name, job] of [['test', test], ['build', build]]) {
-  check(/^ci-/.test(job.concurrency?.group ?? '') && job.concurrency['cancel-in-progress'] === true, `${name}: newer run cancels the older one (group ci-…, cancel-in-progress)`);
+  check(job.concurrency?.group === 'ci-${{ github.ref }}' && job.concurrency['cancel-in-progress'] === true, `${name}: newer run cancels the older one (group ci-…, cancel-in-progress)`);
 }
 check(test.concurrency.group === build.concurrency.group, 'test and build share one group (a newer merge stops whichever of them is running)');
 check(deploy.concurrency?.group === 'deploy-production' && deploy.concurrency['cancel-in-progress'] === false, 'deploy: fixed group, cancel-in-progress FALSE (a running deploy is never interrupted; the newest waiting one is kept)');
