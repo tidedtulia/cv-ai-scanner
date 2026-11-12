@@ -84,6 +84,14 @@ for (const [target, source] of Object.entries(MAP)) {
 
 // the rules the runbook / n8n apply; a dev value that breaks them would fail on Azure
 const rule = (name, ok, message) => parsed[name] && !ok(parsed[name]) && warnings.push(`${name}: ${message}`);
+// two lines glued together (a missing line break): the value then holds another NAME=... and is silently wrong everywhere
+for (const [name, value] of Object.entries(parsed)) {
+  if (name in MAP || Object.values(MAP).includes(name)) {
+    const glued = value.match(/[A-Z][A-Z0-9_]{3,}=/);
+    if (glued) warnings.push(`${name}: the value contains "${glued[0]}": two lines of .env are probably stuck together (a missing line break). It was exported as it is.`);
+  }
+}
+rule('ANTHROPIC_API_KEY', (v) => /^sk-ant-[A-Za-z0-9_-]{20,}$/.test(v), 'does not look like an Anthropic key (sk-ant-… with letters, digits, - and _ only)');
 rule('JWT_SECRET', (v) => v.length >= 32, 'shorter than 32 characters (the backend refuses to start)');
 rule('MCP_AUTH_TOKEN', (v) => v.length >= 32, 'shorter than 32 characters');
 rule('N8N_OWNER_PASSWORD', (v) => v.length >= 8 && v.length <= 64 && /\d/.test(v) && /[A-Z]/.test(v), 'needs 8-64 characters with a digit and an uppercase letter');
