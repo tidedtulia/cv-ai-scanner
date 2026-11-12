@@ -32,3 +32,9 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md)
 - [ ] Bạn chạy `setup-github-oidc.sh`, đặt 3 biến vào repo, giới hạn environment `production` ở `main` (runbook 6.9)
 - [ ] Merge thật: workflow xanh, trang chạy bản mới; merge hai lần liên tiếp (build cũ bị huỷ, deploy xếp hàng); kịch bản quay lui (chạy tay với tag cũ)
 - [ ] Chưa kiểm chứng ngoài Azure / GitHub: quyền Contributor ở cấp resource group đủ cho `az containerapp update` và job; `az containerapp job execution show` trả `Succeeded` đúng như script chờ; tên revision `r<tag>-HHMMSS` được Azure chấp nhận; thời gian job `cvs-migrate` trên B1ms
+
+## Lần chạy thật đầu tiên (2026-11-12, run #2 của PR #11)
+
+- [x] `test` xanh (1 phút 19 giây; lint báo lỗi nhưng không chặn, đúng thiết kế), `build` xanh (5 phút 22 giây, 3 image đã đẩy lên `ghcr.io`)
+- [x] **Lỗi:** `deploy` đỏ ở bước *Sign in to Azure*: `AADSTS700213 No matching federated identity record … 'repo:tidedtulia@92788899/cv-ai-scanner@1445764401:environment:production'`. **Nguyên nhân:** GitHub gửi subject có ID bất biến của chủ và repo; credential do `setup-github-oidc.sh` bản đầu tạo chỉ có tên. **Đã sửa** (nhánh `fix/oidc-subject`): script đọc ID từ API công khai của GitHub, tạo credential `github-production-id`, nhắc xoá credential cũ; thêm `setup-github-oidc.test.mjs` (5 test)
+- [ ] Bạn thêm credential đúng (lệnh trong chat hoặc chạy lại script), rồi **Re-run failed jobs** của run #2 và theo dõi bước *Deploy*

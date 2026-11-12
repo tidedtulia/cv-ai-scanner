@@ -76,7 +76,7 @@ Bối cảnh: [azure-deploy](../azure-deploy/requirements.md) (hiện bạn buil
 **Then:**
 - Job `deploy` chạy trong **environment `production`** (chỉ cho nhánh `main`), dùng `azure/login` với **OIDC**; `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` là **biến** của repo (không phải bí mật); quyền workflow: `id-token: write`, `contents: read`.
 - Danh tính Azure chỉ có vai trò **Contributor trên resource group `cvs-rg`** (không phải toàn subscription).
-- `setup-github-oidc.sh` (bạn chạy một lần, từ máy có `az` đã đăng nhập) tạo app registration + service principal + federated credential cho `repo:tidedtulia/cv-ai-scanner:environment:production` + vai trò, **in ra ba giá trị** cần đặt vào biến của repo; chạy lại không tạo trùng; không in bí mật (không có bí mật nào).
+- `setup-github-oidc.sh` (bạn chạy một lần, từ máy có `az` đã đăng nhập) tạo app registration + service principal + federated credential + vai trò. **Subject của credential mang ID bất biến** của chủ sở hữu và repo: `repo:<chủ>@<id chủ>/<repo>@<id repo>:environment:production` (GitHub gửi đúng dạng này; dạng chỉ có tên báo `AADSTS700213 No matching federated identity record` ở lần chạy thật đầu tiên). ID đọc từ API công khai của GitHub, **in ra ba giá trị** cần đặt vào biến của repo; chạy lại không tạo trùng; không in bí mật (không có bí mật nào).
 
 #### AC-6: Các bước deploy (thứ tự)
 

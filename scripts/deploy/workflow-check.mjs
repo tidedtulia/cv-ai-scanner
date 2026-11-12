@@ -96,7 +96,7 @@ check(!/update_app n8n "\$PREV/.test(script), 'n8n is not rolled back automatica
 check(/case "\$TAG" in/.test(script) && /\*\[!A-Za-z0-9_\.-\]\*/.test(script), 'the tag is validated (letters, digits, . _ - only)');
 
 section('AC-10 — tests of the deploy scripts (fake az / curl, n8n window)');
-const result = spawnSync('node', ['--test', '--test-timeout=60000', 'scripts/deploy/n8n-window.test.mjs', 'scripts/deploy/deploy.test.mjs'], { cwd: root, encoding: 'utf8' });
+const result = spawnSync('node', ['--test', '--test-timeout=60000', 'scripts/deploy/n8n-window.test.mjs', 'scripts/deploy/deploy.test.mjs', 'scripts/deploy/setup-github-oidc.test.mjs'], { cwd: root, encoding: 'utf8' });
 const passed = /# pass (\d+)/.exec(result.stdout)?.[1];
 const failed = /# fail (\d+)/.exec(result.stdout)?.[1];
 check(result.status === 0 && failed === '0', `node --test: ${passed} passed, ${failed} failed`, result.stdout.split('\n').filter((l) => l.startsWith('not ok')).join(' | '));
