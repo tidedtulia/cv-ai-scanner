@@ -28,6 +28,7 @@
     "wf1:check": "node scripts/wf1/wf1-check.mjs",
     "docker:check": "node scripts/deploy/docker-check.mjs",
     "bicep:check": "node scripts/deploy/bicep-check.mjs",
+    "workflow:check": "node scripts/deploy/workflow-check.mjs",
     "bicep:build": "az bicep build --file infra/azure/main.bicep --outfile tmp/azure/main.json"
   },
   "private": true,
@@ -72,6 +73,7 @@
     "jest-environment-jsdom": "^30.0.2",
     "jest-environment-node": "^30.0.2",
     "jest-util": "^30.0.2",
+    "js-yaml": "^4.3.2",
     "nx": "22.6.5",
     "postcss": "8.4.38",
     "prettier": "^3.8.1",

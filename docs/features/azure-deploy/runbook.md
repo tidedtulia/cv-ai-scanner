@@ -202,19 +202,28 @@ Rồi làm bằng tay:
 
 ## 6. Vận hành
 
-### 6.1 Cập nhật phiên bản mới
+### 6.1 Cập nhật phiên bản mới (tự động khi merge)
 
+Từ khi có [auto-deploy](../auto-deploy/requirements.md): **merge PR vào `main` là xong**. Workflow **Deploy** (`.github/workflows/deploy.yml`) chạy test, build 3 image, quét, đẩy lên `ghcr.io`, rồi cập nhật Azure theo thứ tự: migrate (job `cvs-migrate`) → backend → frontend → kiểm tra `/api/health/ready` (không đạt thì tự đưa backend và frontend về tag cũ) → n8n (chỉ ngoài khung giờ 23:50–02:00). Merge chỉ đổi `docs/` hoặc `*.md` thì không chạy. Xem kết quả: GitHub → **Actions → Deploy** (trang tóm tắt có bảng tag trước / sau).
+
+- **Có merge mới khi đang chạy:** build và test của lần cũ bị huỷ; **deploy đang chạy không bị ngắt** (bản mới xếp hàng chờ, chỉ giữ bản mới nhất).
+- **Quay lui:** Actions → Deploy → **Run workflow** → nhập `tag` cũ (xem tag đang chạy bằng `sh scripts/deploy/current-tag.sh`). Migration không tự quay lui.
+- **Thiết lập một lần** (xem 6.9).
+
+**Chạy Bicep bằng tay** (đổi hạ tầng, đổi secret…): Bicep là nguồn cấu hình, nếu `IMAGE_TAG` trong lệnh khác tag đang chạy thì **app bị đưa về tag cũ**. Luôn đặt:
 ```bash
-# 1) GitHub → Actions → Build images → Run workflow, tag mới (mục 3.1); gói đã Public từ lần đầu
-export TAG=<tag vừa build>
-# 2) có migration mới? áp dụng TRƯỚC khi chuyển app sang bản mới (lệnh của bước 3.2, với image mới; cần `adminIp`):
-docker run --rm -e DATABASE_URL -e SEED_SAMPLE_DATA=false $IMAGE_REGISTRY/cv-backend:$TAG sh packages/backend/scripts/migrate-and-seed.sh
-# rồi chuyển app sang bản mới
-export DEPLOY_APPS=true IMAGE_TAG=$TAG
+export DEPLOY_APPS=true IMAGE_TAG=$(sh scripts/deploy/current-tag.sh --backend)
 az deployment group create -g $RG -f infra/azure/main.bicep -p infra/azure/main.bicepparam
 ```
 
-Không có `adminIp` (hoặc không có Docker cục bộ)? Chạy job có sẵn **sau** `az deployment`: `az containerapp job start -g $RG -n $CVS_PREFIX-migrate` rồi `az containerapp job execution list -g $RG -n $CVS_PREFIX-migrate -o table` (phải là *Succeeded*). Giữa hai việc, bản app mới chạy với schema cũ trong thời gian ngắn — chỉ chấp nhận được khi migration chỉ **thêm** (cột / bảng mới), như các migration của dự án tới giờ.
+**Cách làm tay** (khi chưa thiết lập auto-deploy, hoặc dựng lại từ đầu): chạy workflow **Build images** (chỉ build, không deploy), rồi:
+```bash
+export TAG=<tag vừa build>
+docker run --rm -e DATABASE_URL -e SEED_SAMPLE_DATA=false $IMAGE_REGISTRY/cv-backend:$TAG sh packages/backend/scripts/migrate-and-seed.sh   # migration trước (bước 3.2, cần adminIp)
+export DEPLOY_APPS=true IMAGE_TAG=$TAG
+az deployment group create -g $RG -f infra/azure/main.bicep -p infra/azure/main.bicepparam
+```
+Không có `adminIp` (hoặc không có Docker cục bộ)? Chạy job sau `az deployment`: `az containerapp job start -g $RG -n $CVS_PREFIX-migrate`, rồi `az containerapp job execution list -g $RG -n $CVS_PREFIX-migrate -o table` (phải là *Succeeded*). Giữa hai việc, bản app mới chạy với schema cũ trong thời gian ngắn — chỉ chấp nhận được khi migration chỉ **thêm**.
 
 ### 6.2 Xem log
 
@@ -276,6 +285,20 @@ Mặc định n8n **không chạy cả ngày**: chỉ có replica từ `n8nWindo
 - **Luôn bật** (nếu từng bỏ lỡ lịch): `n8nAlwaysOn = true` rồi chạy lại mục 4. Tốn thêm khoảng 10–15 USD/tháng.
 - **Mở editor ngoài khung giờ:** vào `$N8N_URL` (IP phải nằm trong `n8nAllowedCidr`); rule HTTP đánh thức n8n, chờ 1–2 phút ở lần đầu, rồi tự tắt sau vài phút không dùng. Không có `n8nAllowedCidr` thì không có ingress và không mở editor được ngoài khung giờ.
 - **Kiểm tra lịch 00:00 có chạy:** sáng hôm sau xem đơn mới ở `/hr` (đã có điểm) hoặc `az containerapp logs show -g $RG -n $CVS_PREFIX-n8n --tail 200`, và *Executions* trong n8n. Chưa kiểm chứng trên Azure thật rằng rule cron kết hợp `minReplicas = 0` hoạt động như mong đợi: **sau lần triển khai đầu, hãy theo dõi vài đêm liền**.
+
+### 6.9 Thiết lập tự động deploy (một lần)
+
+1. **Cho GitHub đăng nhập Azure bằng OIDC** (không lưu bí mật). Trên máy đã `az login` bằng tài khoản được tạo app registration và gán quyền:
+   ```bash
+   sh scripts/deploy/setup-github-oidc.sh --dry-run     # xem các lệnh sẽ chạy
+   sh scripts/deploy/setup-github-oidc.sh               # chạy thật; chạy lại không tạo trùng
+   ```
+   Script tạo app registration `cv-ai-scanner-github-deploy`, credential cho `repo:tidedtulia/cv-ai-scanner:environment:production`, vai trò **Contributor chỉ trên `cvs-rg`**, rồi in ra 3 giá trị.
+2. GitHub → repo → **Settings → Secrets and variables → Actions → Variables** → thêm `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (**biến**, không phải secret). Nếu `namePrefix` không phải `cvs`: thêm `NAME_PREFIX`; nếu resource group khác `cvs-rg`: thêm `AZURE_RESOURCE_GROUP`.
+3. GitHub → **Settings → Environments → production → Deployment branches → Selected branches → `main`**.
+4. Thử: merge một thay đổi nhỏ (không chỉ docs); xem Actions → Deploy xanh; mở trang web kiểm tra.
+
+Chưa kiểm chứng ngoài Azure thật: quyền Contributor ở cấp resource group đủ cho `az containerapp update` và job (mình nghĩ đủ); nếu lỗi `AuthorizationFailed`, gửi nguyên văn lỗi.
 
 ## 7. Sự cố thường gặp
 

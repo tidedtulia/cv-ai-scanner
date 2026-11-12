@@ -9,19 +9,26 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md)
 
 - [x] Chốt AD1 (dừng build cũ, deploy chờ), AD2 (chỉ cập nhật image + migrate), AD3 (test tự động rồi deploy; lint chỉ báo cáo vì còn lỗi cũ), AD4 (OIDC, chờ xác nhận) (2026-11-12)
 - [x] Scenario AC-1 → AC-10 trong [requirements.md](./requirements.md)
-- [ ] Bạn review scenario và xác nhận AD3 (lint không chặn) và AD4 (OIDC)
+- [x] Bạn review scenario và xác nhận AD3 (lint không chặn) và AD4 (OIDC) (2026-11-12)
 
 ## Làm
 
-- [ ] `scripts/deploy/n8n-window.mjs` + `n8n-window.test.mjs`
-- [ ] `scripts/deploy/current-tag.sh`; cập nhật runbook (cảnh báo Bicep ghi đè tag)
-- [ ] `scripts/deploy/setup-github-oidc.sh`
-- [ ] `.github/workflows/deploy.yml` (test → build → deploy; thay `images.yml`)
-- [ ] `scripts/deploy/workflow-check.mjs` + `npm run workflow:check`
-- [ ] Docs: runbook (mục 6.1 dùng workflow, cách quay lui), CLAUDE.md, project-overview (D37)
+- [x] `scripts/deploy/n8n-window.mjs` + `n8n-window.test.mjs` (7 test: trong / ngoài khung giờ, qua nửa đêm, múi giờ Việt Nam, giá trị mặc định lấy từ `main.bicep`)
+- [x] `scripts/deploy/current-tag.sh` (`--backend` cho `IMAGE_TAG`); runbook cảnh báo Bicep ghi đè tag
+- [x] `scripts/deploy/setup-github-oidc.sh` (`--dry-run`, idempotent, Contributor chỉ trên `cvs-rg`)
+- [x] `scripts/deploy/deploy.sh` + `deploy.test.mjs` (10 test với `az` và `curl` giả)
+- [x] `.github/workflows/deploy.yml` (test → build → deploy; `images.yml` giữ lại cho lần dựng đầu)
+- [x] `scripts/deploy/workflow-check.mjs` + `npm run workflow:check` (+ thêm `js-yaml` vào devDependencies)
+- [x] Docs: runbook mục 6.1 và 6.9, CLAUDE.md, project-overview (D37)
 
-## Kiểm chứng
+## Kiểm chứng (2026-11-12)
 
-- [ ] AC-1 → AC-10: `workflow:check`, test khung giờ n8n, thử làm hỏng
+- [x] `npm run workflow:check`: toàn bộ kiểm tra tĩnh (triggers, `paths-ignore`, concurrency, quyền, environment, OIDC không bí mật, thứ tự bước) + 17 test script đạt
+- [x] Thử làm hỏng để chắc kiểm tra bắt lỗi (đều đỏ, đã khôi phục): `cancel-in-progress` ở deploy, `pull_request_target`, bỏ `paths-ignore`, bỏ bước quét, thêm `secrets.X`, chèn `${{ inputs.tag }}` vào `run`, bỏ `environment`, `concurrency` cấp workflow, cập nhật n8n trước khi đợi khung giờ
+- [x] Test hiện có vẫn đạt sau khi thêm `js-yaml` (shared 20, backend 350, frontend 297, wf1 16); `npm ci` khớp lockfile
+- [ ] Các điểm chỉ kiểm chứng được trên GitHub và Azure thật (xem bên dưới)
 - [ ] Bạn chạy `setup-github-oidc.sh` một lần và đặt 3 biến vào repo
 - [ ] Merge thật: workflow xanh, trang chạy bản mới; merge hai lần liên tiếp; kịch bản quay lui
+- [ ] Bạn chạy `setup-github-oidc.sh`, đặt 3 biến vào repo, giới hạn environment `production` ở `main` (runbook 6.9)
+- [ ] Merge thật: workflow xanh, trang chạy bản mới; merge hai lần liên tiếp (build cũ bị huỷ, deploy xếp hàng); kịch bản quay lui (chạy tay với tag cũ)
+- [ ] Chưa kiểm chứng ngoài Azure / GitHub: quyền Contributor ở cấp resource group đủ cho `az containerapp update` và job; `az containerapp job execution show` trả `Succeeded` đúng như script chờ; tên revision `r<tag>-HHMMSS` được Azure chấp nhận; thời gian job `cvs-migrate` trên B1ms

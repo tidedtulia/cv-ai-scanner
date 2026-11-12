@@ -120,6 +120,15 @@ Bối cảnh: [azure-deploy](../azure-deploy/requirements.md) (hiện bạn buil
 
 ---
 
+## Điều chỉnh khi làm (2026-11-12)
+
+- **Kiểm tra sức khoẻ trước khi cập nhật n8n** (không đợi sau n8n như ghi ở AC-6): kiểm tra `/api/health/ready` ngay sau backend + frontend và quay lui nếu hỏng; chỉ khi site khoẻ mới tới n8n (n8n có thể phải đợi tới 2 giờ 10 phút ngoài khung giờ, không nên giữ việc phát hiện lỗi chờ lâu như vậy).
+- **`images.yml` được giữ lại** (thay vì bị thay): dùng cho lần dựng đầu / dựng lại từ đầu khi chưa có app nào trên Azure (chỉ build, không deploy). `deploy.yml` là đường chính.
+- **Kiểm tra có tag có tồn tại** trước khi đổi bất cứ gì (chạy tay với tag chưa từng build thì dừng ngay).
+- **Test của script** dùng `az` và `curl` giả (không cần Azure, không cần mạng): `scripts/deploy/deploy.test.mjs` (10 test) và `n8n-window.test.mjs` (7 test), chạy trong `npm run workflow:check` và trong job `test`.
+
+---
+
 ## Kiểm thử
 
 | AC | Test |
