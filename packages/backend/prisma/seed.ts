@@ -198,7 +198,16 @@ async function seedHrAccount(prisma: Prisma) {
   });
 }
 
+/** A placeholder pasted from a guide (e.g. "<email hr>") must not become a real account */
+function checkSeedHrEmail() {
+  const email = process.env['SEED_HR_EMAIL']?.trim();
+  if (email && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) {
+    throw new Error('SEED_HR_EMAIL is not a valid email address (did you leave a placeholder such as <email> in the command?)');
+  }
+}
+
 async function main() {
+  checkSeedHrEmail();
   const connectionString = process.env['DATABASE_URL'];
   if (!connectionString) {
     throw new Error('DATABASE_URL is required to seed the database');

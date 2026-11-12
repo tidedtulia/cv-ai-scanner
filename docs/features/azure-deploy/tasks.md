@@ -52,3 +52,28 @@ Tham khảo yêu cầu chi tiết: [requirements.md](./requirements.md) · Hư�
 - [ ] CI/CD (GitHub Actions) — ngoài phạm vi, làm sau nếu cần
 - [ ] Tên miền riêng + chứng chỉ; Key Vault; VNet / private endpoint cho Postgres; dịch vụ gửi mail có SPF / DKIM (khi có domain)
 - [ ] Tự động xoá CV sau 12 tháng (Q7)
+- [x] **Lỗi thấy khi triển khai thật (2026-11-08):** n8n `Failed` với `permission denied for schema public` vì trên Azure schema `public` của database `n8n` không thuộc chủ database; `init-db.sh` giờ `GRANT USAGE, CREATE ON SCHEMA public TO n8n` trong database `n8n`, và `docker:check` mô phỏng điều kiện này
+
+## Triển khai thật lên Azure (2026-11-07 → 2026-11-12, bạn chạy, mình hỗ trợ từ xa)
+
+- [x] Pha 1 (`deployApps=false`) `Succeeded` sau 7 phút: Log Analytics, môi trường Container Apps, PostgreSQL Flexible Server `Standard_B1ms`, database `cv_scanner`, firewall (Azure services + IP của bạn). Pha 2 (`deployApps=true`, tag `20261108.3`) `Succeeded`: `cvs-frontend`, `cvs-backend` (ingress nội bộ), `cvs-n8n` (IP được phép + rule cron + HTTP), job `cvs-migrate`
+- [x] Image `ghcr.io/tidedtulia/cv-backend | cv-frontend | cv-n8n` (workflow *Build images*, 3 gói đã Public, kéo được không cần đăng nhập)
+- [x] Migrate + seed và `init-db.sh` chạy từ máy (Docker) với admin không phải superuser của Azure
+- [x] Kiểm tra từ internet: `/`, `/privacy`, `/submit-cv`, `/jobs`, `/hr/login` 200; `/api/health` và `/api/health/ready` (`database: up`) 200; `/api/positions` `[]`; backend không có đường vào công khai
+- [x] Ứng dụng Google OAuth chuyển sang **In production** (Branding: tên app, email hỗ trợ, email liên hệ, trang chủ và chính sách riêng tư của frontend, Authorized domain); lấy lại refresh token sau khi xuất bản và cập nhật secrets
+- [x] n8n chạy được: 3 workflow import + publish, `/healthz` và `/healthz/readiness` 200, đăng nhập owner được; **khởi động lại 3 lần liên tiếp trên database đã có dữ liệu đều thành công**
+- [ ] Chưa kiểm chứng: đêm nay (23:50 bật, 00:00 chấm) rule cron + `minReplicas = 0` có bật n8n đúng giờ và WF-1 có chạy; nộp CV thật qua Drive; email kết quả qua Gmail trên bản chạy thật
+
+### Lỗi gặp khi triển khai thật và cách đã xử lý
+
+| Lỗi | Nguyên nhân | Đã làm |
+|-----|-------------|--------|
+| `Parameter 'AdministratorLoginPassword' must be specified` | biến `POSTGRES_ADMIN_PASSWORD` rỗng trong terminal; `validate` không bắt được; mật khẩu `openssl rand -hex` cũng chỉ có 2 loại ký tự (Azure đòi ≥ 3) | `@minLength(8)` + không còn giá trị mặc định rỗng; runbook 1.4 và 1.6; `env-to-exports` bỏ qua mật khẩu không đủ phức tạp |
+| `nvm` từ chối chạy | biến shell `PREFIX` | đổi thành `CVS_PREFIX` |
+| `read -p` lỗi trong zsh | cú pháp bash | hàm `ask` chạy được ở cả hai |
+| `npm run drive:auth` không chạy | script chỉ có ở `packages/backend`; Node 18 | thêm script ở thư mục gốc; ghi `nvm use` |
+| `Connection refused` tới PostgreSQL và editor n8n | IP công khai của máy đổi | runbook 6.5 (cập nhật firewall và `allow-0`) |
+| n8n `permission denied for schema public` | trên Azure schema `public` của database `n8n` không thuộc chủ database | `init-db.sh` cấp `CREATE`; `docker:check` mô phỏng |
+| n8n `Failed` lặp (`permission to deactivate this workflow`) | database `n8n` dở dang do lần khởi tạo đầu bị ngắt (tạo revision mới giữa lúc migration) | xoá và tạo lại database `n8n`, một replica; runbook bảng sự cố. Không tái hiện được trên máy |
+| Tài khoản HR là `<email hr thật>` (401) | dòng lệnh mẫu chưa thay chỗ mẫu | seed từ chối email không hợp lệ; xoá tài khoản mẫu |
+| Mật khẩu n8n owner bị cắt tại `#` | `#` không nháy trong `.env`: dotenv cắt, Docker Compose thì không | quote đơn; `env-to-exports` cảnh báo |

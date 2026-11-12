@@ -33,6 +33,22 @@ const MAP = {
 const kinds = (v) => [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(v)).length;
 const azureAdminOk = (v) => v.length >= 8 && v.length <= 128 && kinds(v) >= 3;
 
+// An unquoted value with # is cut there by dotenv (this script, the backend), but not by Docker Compose (dev): the two would
+// then hold DIFFERENT secrets. Single quotes make both read the whole value.
+const rawLines = (() => {
+  try {
+    return readFileSync(file, 'utf8').split('\n');
+  } catch {
+    return [];
+  }
+})();
+const cutByHash = (name) => {
+  const line = rawLines.find((l) => l.startsWith(`${name}=`));
+  if (!line) return false;
+  const value = line.slice(name.length + 1).trim();
+  return value.includes('#') && !/^(["']).*\1$/.test(value);
+};
+
 let parsed;
 try {
   parsed = parseEnv(readFileSync(file, 'utf8'));
@@ -51,8 +67,11 @@ for (const [target, source] of Object.entries(MAP)) {
     missing.push(source);
     continue;
   }
+  if (cutByHash(source)) {
+    warnings.push(`${source} has an unquoted # in .env: it is CUT there (only the part before the # is exported). Wrap the whole value in single quotes: ${source}='...'`);
+  }
   if (target === 'POSTGRES_ADMIN_PASSWORD' && !azureAdminOk(value)) {
-    warnings.push('POSTGRES_PASSWORD is not complex enough for the Azure admin (needs 3 of: upper, lower, digit, symbol; 8-128 characters): NOT exported, make a new one: export POSTGRES_ADMIN_PASSWORD="Aa1-$(openssl rand -hex 16)"');
+    warnings.push('POSTGRES_PASSWORD is not complex enough for the Azure admin (needs 3 of: upper, lower, digit, symbol; 8-128 characters): NOT exported. First deployment: make one, export POSTGRES_ADMIN_PASSWORD="Aa1-$(openssl rand -hex 16)". Server already created: keep using the one you saved (do NOT make a new one, it would not match the server)');
     continue;
   }
   if (/[\r\n]/.test(value)) {
@@ -65,6 +84,14 @@ for (const [target, source] of Object.entries(MAP)) {
 
 // the rules the runbook / n8n apply; a dev value that breaks them would fail on Azure
 const rule = (name, ok, message) => parsed[name] && !ok(parsed[name]) && warnings.push(`${name}: ${message}`);
+// two lines glued together (a missing line break): the value then holds another NAME=... and is silently wrong everywhere
+for (const [name, value] of Object.entries(parsed)) {
+  if (name in MAP || Object.values(MAP).includes(name)) {
+    const glued = value.match(/[A-Z][A-Z0-9_]{3,}=/);
+    if (glued) warnings.push(`${name}: the value contains "${glued[0]}": two lines of .env are probably stuck together (a missing line break). It was exported as it is.`);
+  }
+}
+rule('ANTHROPIC_API_KEY', (v) => /^sk-ant-[A-Za-z0-9_-]{20,}$/.test(v), 'does not look like an Anthropic key (sk-ant-… with letters, digits, - and _ only)');
 rule('JWT_SECRET', (v) => v.length >= 32, 'shorter than 32 characters (the backend refuses to start)');
 rule('MCP_AUTH_TOKEN', (v) => v.length >= 32, 'shorter than 32 characters');
 rule('N8N_OWNER_PASSWORD', (v) => v.length >= 8 && v.length <= 64 && /\d/.test(v) && /[A-Z]/.test(v), 'needs 8-64 characters with a digit and an uppercase letter');

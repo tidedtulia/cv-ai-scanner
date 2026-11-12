@@ -37,10 +37,10 @@ az provider show -n Microsoft.App --query registrationState -o tsv   # đợi t�
 ### 1.2 Biến dùng xuyên suốt
 
 ```bash
-export RG=cvs-rg PREFIX=cvs LOCATION=southeastasia
+export RG=cvs-rg CVS_PREFIX=cvs LOCATION=southeastasia
 ```
 
-`PREFIX` phải trùng `namePrefix` trong file tham số (mặc định `cvs`); tên app là `cvs-frontend`, `cvs-backend`, `cvs-n8n`.
+`CVS_PREFIX` phải trùng `namePrefix` trong file tham số (mặc định `cvs`). Đừng đặt tên là `PREFIX`: nvm từ chối chạy khi biến môi trường `PREFIX` tồn tại; tên app là `cvs-frontend`, `cvs-backend`, `cvs-n8n`.
 
 ### 1.3 Google OAuth: chuẩn bị (xuất bản làm ở bước 5.6)
 
@@ -64,12 +64,14 @@ export MCP_AUTH_TOKEN=$(openssl rand -hex 32)
 export N8N_ENCRYPTION_KEY=$(openssl rand -hex 32)
 export N8N_OWNER_PASSWORD="Aa1$(openssl rand -hex 12)"      # n8n: 8-64 ký tự, có số và chữ hoa
 export SEED_HR_PASSWORD="Hr1!$(openssl rand -hex 10)"       # mật khẩu HR đầu tiên (đổi sau khi đăng nhập)
-# những giá trị bạn đã có (nhập, không hiện lên màn hình):
-read -rs -p "ANTHROPIC_API_KEY: " ANTHROPIC_API_KEY; export ANTHROPIC_API_KEY; echo
-read -rs -p "GOOGLE_CLIENT_ID: " GOOGLE_CLIENT_ID; export GOOGLE_CLIENT_ID; echo
-read -rs -p "GOOGLE_CLIENT_SECRET: " GOOGLE_CLIENT_SECRET; export GOOGLE_CLIENT_SECRET; echo
-read -rs -p "GOOGLE_REFRESH_TOKEN (mới, sau khi xuất bản): " GOOGLE_REFRESH_TOKEN; export GOOGLE_REFRESH_TOKEN; echo
-read -rs -p "SMTP_PASSWORD (Gmail App Password): " SMTP_PASSWORD; export SMTP_PASSWORD; echo
+# những giá trị bạn đã có (nhập, không hiện lên màn hình). Hàm này chạy được ở cả bash lẫn zsh
+# (không dùng `read -p`: trong zsh `-p` có nghĩa khác):
+ask() { printf '%s: ' "$1"; stty -echo; read -r _v; stty echo; echo; export "$1=$_v"; unset _v; }
+ask ANTHROPIC_API_KEY
+ask GOOGLE_CLIENT_ID
+ask GOOGLE_CLIENT_SECRET
+ask GOOGLE_REFRESH_TOKEN      # token mới nhất, sau khi chạy npm run drive:auth
+ask SMTP_PASSWORD             # Gmail App Password
 ```
 
 **Cách B: dùng lại các giá trị trong `.env` của dev** (chạy ở máy có file `.env`, không in giá trị ra màn hình; không dùng được trong Cloud Shell vì `.env` không ở đó):
@@ -130,7 +132,7 @@ echo "$IMAGE_REGISTRY  $PGHOST  $DBNAME"
 
 ### 3.1 Build 3 image bằng GitHub Actions (đẩy lên `ghcr.io`, public)
 
-1. Nếu `namePrefix` **không** phải `cvs`: GitHub → repo → Settings → Secrets and variables → Actions → **Variables** → thêm `NAME_PREFIX` = giá trị đó (frontend bị nướng địa chỉ `http://<PREFIX>-backend` lúc build).
+1. Nếu `namePrefix` **không** phải `cvs`: GitHub → repo → Settings → Secrets and variables → Actions → **Variables** → thêm `NAME_PREFIX` = giá trị đó (frontend bị nướng địa chỉ `http://<CVS_PREFIX>-backend` lúc build).
 2. GitHub → **Actions → Build images → Run workflow** → nhập `tag` (ví dụ `20261107.1`, chữ / số / `. _ -`). Hoặc push tag `v*`. Workflow dựng 3 image từ bản checkout sạch, **quét** (không có `.env`, không có chuỗi giống khoá bí mật; có là dừng, không đẩy gì), rồi đẩy bằng `GITHUB_TOKEN`.
 3. **Chỉ lần đầu:** gói mới tạo mặc định là *private*. Vào GitHub → ảnh đại diện → **Your profile → Packages**; với **từng** gói `cv-backend`, `cv-frontend`, `cv-n8n`: **Package settings → Change visibility → Public** (và *Connect repository* nếu được hỏi).
 4. Kiểm tra kéo được **không cần đăng nhập** (cửa sổ khác, chưa `docker login`):
@@ -182,7 +184,7 @@ curl -s $FRONTEND_URL/api/health/ready                    # {"status":"ok","data
 curl -s $FRONTEND_URL/api/positions | head -c 200         # danh sách rỗng (chưa có job; HR tạo trong /hr/positions)
 
 # 5.2 backend KHÔNG truy cập được từ internet (không có ingress công khai)
-az containerapp show -g $RG -n $PREFIX-backend --query "properties.configuration.ingress.external" -o tsv   # false
+az containerapp show -g $RG -n $CVS_PREFIX-backend --query "properties.configuration.ingress.external" -o tsv   # false
 ```
 
 Rồi làm bằng tay:
@@ -212,27 +214,36 @@ export DEPLOY_APPS=true IMAGE_TAG=$TAG
 az deployment group create -g $RG -f infra/azure/main.bicep -p infra/azure/main.bicepparam
 ```
 
-Không có `adminIp` (hoặc không có Docker cục bộ)? Chạy job có sẵn **sau** `az deployment`: `az containerapp job start -g $RG -n $PREFIX-migrate` rồi `az containerapp job execution list -g $RG -n $PREFIX-migrate -o table` (phải là *Succeeded*). Giữa hai việc, bản app mới chạy với schema cũ trong thời gian ngắn — chỉ chấp nhận được khi migration chỉ **thêm** (cột / bảng mới), như các migration của dự án tới giờ.
+Không có `adminIp` (hoặc không có Docker cục bộ)? Chạy job có sẵn **sau** `az deployment`: `az containerapp job start -g $RG -n $CVS_PREFIX-migrate` rồi `az containerapp job execution list -g $RG -n $CVS_PREFIX-migrate -o table` (phải là *Succeeded*). Giữa hai việc, bản app mới chạy với schema cũ trong thời gian ngắn — chỉ chấp nhận được khi migration chỉ **thêm** (cột / bảng mới), như các migration của dự án tới giờ.
 
 ### 6.2 Xem log
 
 ```bash
-az containerapp logs show -g $RG -n $PREFIX-backend --follow --tail 100
-az containerapp logs show -g $RG -n $PREFIX-n8n --follow --tail 100
-az containerapp job execution list -g $RG -n $PREFIX-migrate -o table
+az containerapp logs show -g $RG -n $CVS_PREFIX-backend --follow --tail 100
+az containerapp logs show -g $RG -n $CVS_PREFIX-n8n --follow --tail 100
+az containerapp job execution list -g $RG -n $CVS_PREFIX-migrate -o table
 ```
 
 ### 6.3 Quay lui
 
-App: deploy lại với tag cũ (`export IMAGE_TAG=<tag cũ>` rồi chạy `az deployment group create` như mục 4), hoặc kích hoạt revision cũ: `az containerapp revision list -g $RG -n $PREFIX-backend -o table` rồi `az containerapp revision activate ...`. **Migration không tự quay lui**: nếu migration sai, khôi phục DB (6.6) rồi triển khai tag cũ.
+App: deploy lại với tag cũ (`export IMAGE_TAG=<tag cũ>` rồi chạy `az deployment group create` như mục 4), hoặc kích hoạt revision cũ: `az containerapp revision list -g $RG -n $CVS_PREFIX-backend -o table` rồi `az containerapp revision activate ...`. **Migration không tự quay lui**: nếu migration sai, khôi phục DB (6.6) rồi triển khai tag cũ.
 
 ### 6.4 Đổi bí mật
 
 Đặt lại biến môi trường rồi chạy lại `az deployment group create` (mục 4). Riêng: `N8N_ENCRYPTION_KEY` **không đổi được**; mật khẩu DB của role `n8n` / `n8n_app` / `mcp_readonly` phải chạy lại bước 3.3 với mật khẩu mới **trước** khi deploy; `POSTGRES_ADMIN_PASSWORD` đổi bằng `az postgres flexible-server update -g $RG -n <tên server> --admin-password ...` rồi deploy lại.
 
-### 6.5 Đổi IP được vào n8n / IP chạy lệnh DB
+### 6.5 IP của bạn đã đổi (PostgreSQL và editor n8n)
 
-Sửa `n8nAllowedCidr` / `adminIp` trong `main.bicepparam` và chạy lại mục 4. Xoá `adminIp` (để rỗng) khi không cần nữa — firewall đó sẽ bị gỡ ở lần deploy sau.
+Nhà mạng cấp IP khác theo thời gian. Khi đó `psql` / `docker run … psql` báo `Connection refused` (hoặc timeout) và editor n8n không mở được. Cập nhật cả hai nơi (không cần deploy lại Bicep):
+
+```bash
+export MY_IP=$(curl -s https://api.ipify.org); echo $MY_IP
+PGSERVER=$(az deployment group show -g $RG -n main --query properties.outputs.postgresName.value -o tsv)
+az postgres flexible-server firewall-rule update -g $RG -n $PGSERVER --rule-name AdminIp --start-ip-address $MY_IP --end-ip-address $MY_IP
+az containerapp ingress access-restriction set -g $RG -n $CVS_PREFIX-n8n --rule-name allow-0 --ip-address $MY_IP/32 --action Allow
+```
+
+Rồi sửa luôn `adminIp` và `n8nAllowedCidr` trong `infra/azure/main.bicepparam`: nếu không, lần chạy Bicep kế tiếp sẽ đặt lại IP cũ. Xoá `adminIp` (để rỗng) khi không cần chạy lệnh DB từ máy bạn nữa.
 
 ### 6.6 Sao lưu và khôi phục DB
 
@@ -255,7 +266,7 @@ az postgres flexible-server start -g $RG -n <tên server>
 az group delete -n $RG --yes --no-wait
 ```
 
-n8n đã tự về 0 ngoài khung giờ (6.8) nên không cần làm gì thêm cho n8n; nếu bạn đặt `n8nAlwaysOn = true` thì chạy thêm `az containerapp update -g $RG -n $PREFIX-n8n --min-replicas 0` khi ngủ đông và `--min-replicas 1` khi bật lại (lần deploy Bicep kế tiếp sẽ đặt lại giá trị theo tham số).
+n8n đã tự về 0 ngoài khung giờ (6.8) nên không cần làm gì thêm cho n8n; nếu bạn đặt `n8nAlwaysOn = true` thì chạy thêm `az containerapp update -g $RG -n $CVS_PREFIX-n8n --min-replicas 0` khi ngủ đông và `--min-replicas 1` khi bật lại (lần deploy Bicep kế tiếp sẽ đặt lại giá trị theo tham số).
 
 ### 6.8 n8n theo khung giờ
 
@@ -264,7 +275,7 @@ Mặc định n8n **không chạy cả ngày**: chỉ có replica từ `n8nWindo
 - **Đổi khung giờ:** sửa `n8nWindowStart` / `n8nWindowEnd` trong `main.bicepparam` (cú pháp cron 5 trường, giờ Việt Nam) rồi chạy lại mục 4. Khung giờ phải đủ rộng để chấm hết đơn của đêm đó; dừng giữa chừng sẽ ngắt đơn đang chấm (đơn kẹt ở *EVALUATING* và được xử lý ở lần sau, xem n8n-workflows.md). Container được chờ 600 giây trước khi bị dừng.
 - **Luôn bật** (nếu từng bỏ lỡ lịch): `n8nAlwaysOn = true` rồi chạy lại mục 4. Tốn thêm khoảng 10–15 USD/tháng.
 - **Mở editor ngoài khung giờ:** vào `$N8N_URL` (IP phải nằm trong `n8nAllowedCidr`); rule HTTP đánh thức n8n, chờ 1–2 phút ở lần đầu, rồi tự tắt sau vài phút không dùng. Không có `n8nAllowedCidr` thì không có ingress và không mở editor được ngoài khung giờ.
-- **Kiểm tra lịch 00:00 có chạy:** sáng hôm sau xem đơn mới ở `/hr` (đã có điểm) hoặc `az containerapp logs show -g $RG -n $PREFIX-n8n --tail 200`, và *Executions* trong n8n. Chưa kiểm chứng trên Azure thật rằng rule cron kết hợp `minReplicas = 0` hoạt động như mong đợi: **sau lần triển khai đầu, hãy theo dõi vài đêm liền**.
+- **Kiểm tra lịch 00:00 có chạy:** sáng hôm sau xem đơn mới ở `/hr` (đã có điểm) hoặc `az containerapp logs show -g $RG -n $CVS_PREFIX-n8n --tail 200`, và *Executions* trong n8n. Chưa kiểm chứng trên Azure thật rằng rule cron kết hợp `minReplicas = 0` hoạt động như mong đợi: **sau lần triển khai đầu, hãy theo dõi vài đêm liền**.
 
 ## 7. Sự cố thường gặp
 
@@ -277,9 +288,11 @@ Mặc định n8n **không chạy cả ngày**: chỉ có replica từ `n8nWindo
 | Bước 3.3 báo thiếu quyền / `must be able to SET ROLE` | Admin của Azure thiếu `CREATEROLE`: kiểm tra `az postgres flexible-server show`; script đã `GRANT n8n TO <admin> WITH SET TRUE, INHERIT TRUE`; gửi nguyên văn lỗi để xử lý |
 | `psql: could not connect` / timeout | IP chưa nằm trong `adminIp` (IP đổi theo nhà mạng) → cập nhật và deploy lại |
 | n8n không sẵn sàng, log nêu `self-signed certificate` / `unable to verify` | Đặt `verifyDatabaseCertificate = false` (chỉ khi bắt buộc), deploy lại |
+| n8n `Unhealthy / Failed`, log có `permission denied for schema public` (khi tạo bảng migrations) | Trên Azure schema `public` của database `n8n` không thuộc chủ database nên role `n8n` thiếu quyền `CREATE`. `init-db.sh` bản mới đã cấp quyền: chạy lại bước 3.3 rồi tạo revision mới cho n8n (`az containerapp update -g $RG -n $CVS_PREFIX-n8n --revision-suffix "r$(date +%m%d%H%M)"`) |
+| n8n `Failed` lặp lại, log `You do not have permission to deactivate this workflow` ở bước *importing workflows* (database `n8n` ở trạng thái dở dang vì lần khởi tạo đầu bị ngắt, ví dụ tạo revision mới trong lúc n8n đang chạy migration lần đầu; migration lần đầu trên PostgreSQL B1ms mất 1–2 phút) | Đặt lại database `n8n` (chỉ chứa dữ liệu nội bộ của n8n; workflow và credentials được nạp lại từ repo và biến môi trường, dữ liệu CV nằm ở database khác): đợi n8n về 0 replica (sau 02:05 giờ Việt Nam, hoặc `az containerapp revision list` cho thấy 0 replica), `psql -d postgres -c "DROP DATABASE IF EXISTS n8n"` bằng tài khoản admin (qua `docker run postgres:17-alpine`, như bước 3.3), chạy lại bước 3.3 để tạo lại, rồi đánh thức **một** replica (mở `$N8N_URL`) và đợi 2–3 phút. Đừng tạo revision mới trong lúc n8n khởi tạo lần đầu |
 | n8n *crash loop* với `database "n8n" does not exist` | Chưa chạy bước 3.3 → chạy rồi `az containerapp revision restart ...` |
 | Trang chạy nhưng `/api/*` lỗi 502/504 sau thời gian không dùng | Backend vừa tỉnh dậy từ 0 replica (vài giây); lần thứ hai bình thường. Muốn không bao giờ chậm: `backendMinReplicas = 1` (tốn thêm ~5–8 USD/tháng) |
-| `/api/*` luôn 404 qua frontend | `BACKEND_URL` lúc **build** frontend sai → build lại với đúng `http://<PREFIX>-backend` |
+| `/api/*` luôn 404 qua frontend | `BACKEND_URL` lúc **build** frontend sai → build lại với đúng `http://<CVS_PREFIX>-backend` |
 | Đăng nhập HR bị khoá vì nhiều lần sai | Bộ đếm nằm trong bộ nhớ backend: khởi động lại backend (`az containerapp revision restart`) hoặc đợi 15 phút |
 | Email vào thư rác | Gmail cá nhân không có SPF/DKIM theo tên miền của bạn; xem rủi ro bên dưới |
 | Refresh token Google hết hạn sau 7 ngày | Chưa xuất bản OAuth (bước 5.6) |
@@ -363,7 +376,7 @@ Mở Cloud Shell, chọn **Bash**, rồi:
 
 ```bash
 git clone https://github.com/tidedtulia/cv-ai-scanner && cd cv-ai-scanner
-export RG=cvs-rg PREFIX=cvs LOCATION=southeastasia
+export RG=cvs-rg CVS_PREFIX=cvs LOCATION=southeastasia
 # đặt các bí mật như mục 1.4 (openssl rand / read -rs), lưu vào trình quản lý mật khẩu ngay
 cp infra/azure/main.example.bicepparam infra/azure/main.bicepparam
 nano infra/azure/main.bicepparam            # sửa các giá trị thường (mục 1.5); adminIp: xem dưới
@@ -388,7 +401,7 @@ Thứ tự khác runbook gốc, vì không có Docker để chạy migrate trư�
 
 1. Pha 1 (`deployApps=false`), build image bằng GitHub Actions, rồi **pha 2** (`DEPLOY_APPS=true IMAGE_TAG=<tag>`).
    **Đừng triển khai pha 2 trong khung giờ 23:50–02:00** (giờ Việt Nam): n8n sẽ bật lên khi database `n8n` chưa có và lặp lại lỗi cho tới khi xong bước dưới (ngoài khung giờ n8n ở 0 replica nên không sao).
-2. **Migrate + seed:** Portal → **Container Apps Jobs → `cvs-migrate` → Run now**; xem **Execution history** phải là *Succeeded* (log: tab Logs / `az containerapp job execution list -g $RG -n $PREFIX-migrate -o table`). Job đã đặt sẵn `SEED_SAMPLE_DATA=false`, `SEED_HR_EMAIL`, `SEED_HR_PASSWORD`.
+2. **Migrate + seed:** Portal → **Container Apps Jobs → `cvs-migrate` → Run now**; xem **Execution history** phải là *Succeeded* (log: tab Logs / `az containerapp job execution list -g $RG -n $CVS_PREFIX-migrate -o table`). Job đã đặt sẵn `SEED_SAMPLE_DATA=false`, `SEED_HR_EMAIL`, `SEED_HR_PASSWORD`.
 3. **`init-db.sh`** từ Cloud Shell (cần `psql` ≥ 15: kiểm tra `psql --version`):
 
 ```bash

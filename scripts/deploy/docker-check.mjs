@@ -147,6 +147,12 @@ try {
     const init = oneShot('postgres:17-alpine', { env: initEnv, entrypoint: 'sh', command: ['/setup/init-db.sh'], volumes: [`${setup}:/setup:ro`] });
     check(init.status === 0, `run ${attempt} succeeds`, (init.stderr || init.stdout).trim().split('\n').slice(-2).join(' | '));
   }
+  // Azure: schema public of a new database is not owned by the database owner, so role n8n cannot create its tables there
+  // ("permission denied for schema public"). Simulate it, run init-db.sh again, and n8n must be able to create tables.
+  psql('ALTER SCHEMA public OWNER TO azadmin; REVOKE ALL ON SCHEMA public FROM n8n', { db: 'n8n' });
+  check(psql("SELECT NOT has_schema_privilege('n8n','public','CREATE')", { db: 'n8n' }) === 't', 'simulated Azure: role n8n has no CREATE on schema public of database n8n');
+  const reinit = oneShot('postgres:17-alpine', { env: initEnv, entrypoint: 'sh', command: ['/setup/init-db.sh'], volumes: [`${setup}:/setup:ro`] });
+  check(reinit.status === 0 && psql("SELECT has_schema_privilege('n8n','public','CREATE')", { db: 'n8n' }) === 't', 'init-db.sh gives role n8n CREATE on schema public again (n8n can create its tables)', (reinit.stderr || reinit.stdout).trim().split('\n').slice(-1)[0]);
   const priv = (q) => psql(q);
   check(priv("SELECT has_table_privilege('n8n_app','applications','SELECT') AND has_column_privilege('n8n_app','applications','status','UPDATE') AND NOT has_column_privilege('n8n_app','applications','full_name','UPDATE')") === 't', 'n8n_app: reads applications, updates only status / updated_at');
   check(priv("SELECT has_table_privilege('n8n_app','evaluations','INSERT') AND has_table_privilege('n8n_app','application_status_history','INSERT')") === 't', 'n8n_app: writes evaluations and history');
