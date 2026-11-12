@@ -33,6 +33,22 @@ const MAP = {
 const kinds = (v) => [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(v)).length;
 const azureAdminOk = (v) => v.length >= 8 && v.length <= 128 && kinds(v) >= 3;
 
+// An unquoted value with # is cut there by dotenv (this script, the backend), but not by Docker Compose (dev): the two would
+// then hold DIFFERENT secrets. Single quotes make both read the whole value.
+const rawLines = (() => {
+  try {
+    return readFileSync(file, 'utf8').split('\n');
+  } catch {
+    return [];
+  }
+})();
+const cutByHash = (name) => {
+  const line = rawLines.find((l) => l.startsWith(`${name}=`));
+  if (!line) return false;
+  const value = line.slice(name.length + 1).trim();
+  return value.includes('#') && !/^(["']).*\1$/.test(value);
+};
+
 let parsed;
 try {
   parsed = parseEnv(readFileSync(file, 'utf8'));
@@ -50,6 +66,9 @@ for (const [target, source] of Object.entries(MAP)) {
   if (!value) {
     missing.push(source);
     continue;
+  }
+  if (cutByHash(source)) {
+    warnings.push(`${source} has an unquoted # in .env: it is CUT there (only the part before the # is exported). Wrap the whole value in single quotes: ${source}='...'`);
   }
   if (target === 'POSTGRES_ADMIN_PASSWORD' && !azureAdminOk(value)) {
     warnings.push('POSTGRES_PASSWORD is not complex enough for the Azure admin (needs 3 of: upper, lower, digit, symbol; 8-128 characters): NOT exported. First deployment: make one, export POSTGRES_ADMIN_PASSWORD="Aa1-$(openssl rand -hex 16)". Server already created: keep using the one you saved (do NOT make a new one, it would not match the server)');
