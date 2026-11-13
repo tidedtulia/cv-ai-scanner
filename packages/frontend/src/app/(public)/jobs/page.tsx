@@ -29,7 +29,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const isFiltered = Boolean(filters.category || filters.level);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="mx-auto max-w-5xl 2xl:max-w-7xl px-4 py-10">
       <h1 className="text-2xl font-bold text-gray-900">{dict.jobs.title}</h1>
       <p className="mt-1 text-sm text-gray-500">{dict.jobs.subtitle}</p>
 

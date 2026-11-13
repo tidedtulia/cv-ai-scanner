@@ -5,7 +5,7 @@ import { format } from '../../i18n/format';
 
 export function HomeContent({ dict }: { dict: Dictionary['home'] }) {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-16">
+    <div className="mx-auto max-w-5xl 2xl:max-w-7xl px-4 py-16">
       <section className="text-center">
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">{dict.title}</h1>
         <p className="mx-auto mt-4 max-w-2xl text-base text-gray-600">{dict.subtitle}</p>
