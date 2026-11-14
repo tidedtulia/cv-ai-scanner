@@ -107,7 +107,7 @@ export function CriteriaManager({ positionId, criteria, applicationCount }: { po
                 <tr key={criterion.id}>
                   <td className="px-3 py-2 font-medium">
                     {criterion.name}
-                    {criterion.isRequired && <span className="ml-2 rounded bg-gray-800 px-1.5 py-0.5 text-xs text-white">{t.required}</span>}
+                    {criterion.isRequired && <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 align-middle text-xs font-medium leading-none text-red-700 ring-1 ring-inset ring-red-200">{t.required}</span>}
                   </td>
                   <td className="px-3 py-2">{dict.hrApplications.criterionType[criterion.type]}</td>
                   <td className="px-3 py-2">{criterion.weight}</td>

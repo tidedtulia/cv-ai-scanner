@@ -109,7 +109,7 @@ export default async function HrApplicationDetailPage({ params, searchParams }: 
                       <tr key={c.criterion_id}>
                         <td className="px-3 py-2 font-medium">
                           {c.name}
-                          {c.is_required && <span className="ml-2 rounded bg-gray-800 px-1.5 py-0.5 text-xs text-white">{t.detail.required_badge}</span>}
+                          {c.is_required && <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 align-middle text-xs font-medium leading-none text-red-700 ring-1 ring-inset ring-red-200">{t.detail.required_badge}</span>}
                         </td>
                         <td className="px-3 py-2">{t.criterionType[c.type]}</td>
                         <td className="px-3 py-2">{c.weight}</td>
