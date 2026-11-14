@@ -18,7 +18,7 @@ export default async function PrivacyPage() {
   };
 
   return (
-    <article className="mx-auto max-w-3xl px-4 py-12">
+    <article className="mx-auto max-w-3xl 2xl:max-w-4xl px-4 py-12">
       <h1 className="text-2xl font-bold text-gray-900">{dict.privacy.title}</h1>
       <p className="mt-1 text-xs text-gray-500">{format(dict.privacy.updated, values)}</p>
       <p className="mt-6 text-sm text-gray-700">{dict.privacy.intro}</p>

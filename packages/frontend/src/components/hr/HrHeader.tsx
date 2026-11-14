@@ -37,7 +37,7 @@ export function HrHeader({ user }: { user?: IHrSessionUser }) {
 
   return (
     <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-6xl 2xl:max-w-[90rem] items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-6xl 2xl:max-w-[90rem] min-[1920px]:max-w-[110rem] items-center justify-between gap-4 px-4 py-3">
         <Link href={HR_HOME} className="flex items-center gap-2 text-base font-bold text-gray-900">
           {dict.meta.siteName}
           <span className="rounded bg-blue-600 px-1.5 py-0.5 text-xs font-semibold text-white">{dict.hr.areaName}</span>
