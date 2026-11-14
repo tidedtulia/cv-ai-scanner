@@ -5,7 +5,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 export function SiteHeader({ dict }: { dict: Dictionary }) {
   return (
     <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-5xl 2xl:max-w-7xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-5xl 2xl:max-w-7xl min-[1920px]:max-w-[90rem] items-center justify-between gap-4 px-4 py-3">
         <Link href="/" className="text-base font-bold text-gray-900">
           {dict.meta.siteName}
         </Link>

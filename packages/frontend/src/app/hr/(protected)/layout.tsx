@@ -23,7 +23,7 @@ export default async function HrProtectedLayout({ children }: { children: React.
     return (
       <>
         <HrHeader />
-        <main className="mx-auto w-full max-w-6xl 2xl:max-w-[90rem] flex-1 px-4 py-8">
+        <main className="mx-auto w-full max-w-6xl 2xl:max-w-[90rem] min-[1920px]:max-w-[110rem] flex-1 px-4 py-8">
           <ErrorNotice message={dict.hr.loadError} />
         </main>
       </>
@@ -33,7 +33,7 @@ export default async function HrProtectedLayout({ children }: { children: React.
   return (
     <>
       <HrHeader user={session.user} />
-      <main className="mx-auto w-full max-w-6xl 2xl:max-w-[90rem] flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-6xl 2xl:max-w-[90rem] min-[1920px]:max-w-[110rem] flex-1 px-4 py-8">{children}</main>
     </>
   );
 }
